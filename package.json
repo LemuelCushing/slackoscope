@@ -2,6 +2,9 @@
   "name": "slackoscope",
   "displayName": "Slackoscope",
   "publisher": "LemuelCushing",
+  "repository": {
+    "url": "https://github.com/LemuelCushing/slackoscope"
+  },
   "description": "Take a peek at slack msgs from inside your code. For those with no short term memory",
   "version": "0.0.1",
   "engines": {
@@ -11,7 +14,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:*"
+    "onStartupFinished"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -65,5 +68,10 @@
   },
   "dependencies": {
     "@slack/web-api": "^6.12.0"
-  }
+  },
+  "keywords": [
+    "slack",
+    "vscode",
+    "extension"
+  ]
 }
