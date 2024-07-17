@@ -24,7 +24,12 @@ export function activate(context: vscode.ExtensionContext) {
                 if (range) {
                     const slackUrl = document.getText(range);
                     const messageContent = await slackApi.getMessageContent(slackUrl);
-                    return new vscode.Hover(messageContent);
+
+                    const hoverMessage = new vscode.MarkdownString(`**Slack Message:** ${messageContent}`);
+                    hoverMessage.isTrusted = true;
+                    hoverMessage.appendMarkdown(`\n\n[Insert Commented Message](command:slackoscope.insertCommentedMessage?${encodeURIComponent(JSON.stringify(slackUrl))})`);
+
+                    return new vscode.Hover(hoverMessage);
                 }
             }
         })
@@ -38,7 +43,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    let disposable = vscode.commands.registerCommand('slackoscope.toggleInlineMessage', async () => {
+    let toggleInlineMessageDisposable = vscode.commands.registerCommand('slackoscope.toggleInlineMessage', async () => {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
             const document = editor.document;
@@ -67,7 +72,26 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(disposable);
+    context.subscriptions.push(toggleInlineMessageDisposable);
+
+    // Register the new command
+    let insertCommentedMessageDisposable = vscode.commands.registerCommand('slackoscope.insertCommentedMessage', async (slackUrl: string) => {
+        const editor = vscode.window.activeTextEditor;
+        if (editor) {
+            const document = editor.document;
+            const messageContent = await slackApi.getMessageContent(slackUrl);
+
+            const range = document.getWordRangeAtPosition(editor.selection.start, SLACK_URL_REGEX);
+            if (range) {
+                const comment = `// ${messageContent.replace(/\n/g, '\n// ')}`;
+                const edit = new vscode.WorkspaceEdit();
+                edit.insert(document.uri, range.start, `${comment}\n`);
+                await vscode.workspace.applyEdit(edit);
+            }
+        }
+    });
+
+    context.subscriptions.push(insertCommentedMessageDisposable);
 }
 
 export function deactivate() {}

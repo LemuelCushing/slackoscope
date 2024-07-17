@@ -18,6 +18,10 @@
       {
         "command": "slackoscope.toggleInlineMessage",
         "title": "Slackoscope: Toggle Inline Message Display"
+      },
+      {
+        "command": "slackoscope.insertCommentedMessage",
+        "title": "Slackoscope: Insert Commented Message"
       }
     ],
     "configuration": {
