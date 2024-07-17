@@ -1,6 +1,7 @@
 {
   "name": "slackoscope",
   "displayName": "Slackoscope",
+  "publisher": "LemuelCushing",
   "description": "Take a peek at slack msgs from inside your code. For those with no short term memory",
   "version": "0.0.1",
   "engines": {
