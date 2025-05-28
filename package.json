@@ -25,7 +25,8 @@
       },
       {
         "command": "slackoscope.insertCommentedMessage",
-        "title": "Slackoscope: Insert Commented Message"
+        "title": "Slackoscope: Insert Commented Message",
+        "enablement": "false"
       }
     ],
     "configuration": {
