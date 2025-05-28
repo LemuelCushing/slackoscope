@@ -81,11 +81,22 @@ export function activate(context: vscode.ExtensionContext) {
             const document = editor.document;
             const messageContent = await slackApi.getMessageContent(slackUrl);
 
-            const range = document.getWordRangeAtPosition(editor.selection.start, SLACK_URL_REGEX);
-            if (range) {
+            let lineOfUrl = -1;
+            // Find the line number containing the slackUrl
+            for (let i = 0; i < document.lineCount; i++) {
+                if (document.lineAt(i).text.includes(slackUrl)) {
+                    lineOfUrl = i;
+                    break;
+                }
+            }
+
+            if (lineOfUrl !== -1) {
+                // Format the message content as a comment
                 const comment = `// ${messageContent.replace(/\n/g, '\n// ')}`;
                 const edit = new vscode.WorkspaceEdit();
-                edit.insert(document.uri, range.start, `${comment}\n`);
+                // Insert the comment at the beginning of the line where slackUrl was found
+                const insertPosition = new vscode.Position(lineOfUrl, 0);
+                edit.insert(document.uri, insertPosition, `${comment}\n`);
                 await vscode.workspace.applyEdit(edit);
             }
         }
