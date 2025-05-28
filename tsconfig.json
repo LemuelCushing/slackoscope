@@ -3,6 +3,7 @@
     "module": "Node16",
     "target": "ES2022",
     "lib": [
+      "ES5",
       "ES2022"
     ],
     "sourceMap": true,
@@ -11,11 +12,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }
