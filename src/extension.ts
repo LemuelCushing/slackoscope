@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { SlackApi, SLACK_URL_REGEX } from './slackApi';
 
+const messageCache = new Map<string, string>();
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('Slackoscope is now active!');
 
@@ -21,16 +23,22 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.languages.registerHoverProvider('*', {
             async provideHover(document, position, token) {
                 const range = document.getWordRangeAtPosition(position, SLACK_URL_REGEX);
-                if (range) {
-                    const slackUrl = document.getText(range);
-                    const messageContent = await slackApi.getMessageContent(slackUrl);
+                if (!range) { return; }
 
-                    const hoverMessage = new vscode.MarkdownString(`**Slack Message:** ${messageContent}`);
-                    hoverMessage.isTrusted = true;
-                    hoverMessage.appendMarkdown(`\n\n[Insert Commented Message](command:slackoscope.insertCommentedMessage?${encodeURIComponent(JSON.stringify(slackUrl))})`);
-
-                    return new vscode.Hover(hoverMessage);
+                const slackUrl = document.getText(range);
+                let messageContent = messageCache.get(slackUrl);
+                if (!messageContent) {
+                    messageContent = await slackApi.getMessageContent(slackUrl);
+                    messageCache.set(slackUrl, messageContent);
                 }
+
+                const hoverMessage = new vscode.MarkdownString(`**Slack Message:** ${messageContent}`);
+                hoverMessage.isTrusted = true;
+                const jsonParams = JSON.stringify({ url: slackUrl, lineNumber: position.line });
+                const insertCommandUrl = `command:slackoscope.insertCommentedMessage?${encodeURIComponent(jsonParams)}`;
+                hoverMessage.appendMarkdown(`\n\n[Insert Commented Message](${insertCommandUrl})`);
+
+                return new vscode.Hover(hoverMessage);
             }
         })
     );
@@ -74,24 +82,36 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(toggleInlineMessageDisposable);
 
-    // Register the new command
-    let insertCommentedMessageDisposable = vscode.commands.registerCommand('slackoscope.insertCommentedMessage', async (slackUrl: string) => {
+    // Since getLnanguageConfiguration is not available in the API, we can lean into on
+    // snippet insertion to handle comments. For now, we will always use multiple line comments
+    const createCommentedSnippet = (message: string): vscode.SnippetString => {
+        return new vscode.SnippetString(
+            message
+                .split('\n')
+                .map(line => `$LINE_COMMENT ${line}`)
+                .join('\n')
+        );
+    };
+
+    const insertCommentedMessageHandler = async ({ url, lineNumber }: { url: string; lineNumber: number }) => {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
             const document = editor.document;
-            const messageContent = await slackApi.getMessageContent(slackUrl);
+            const messageContent = messageCache.get(url) || await slackApi.getMessageContent(url);
 
-            const range = document.getWordRangeAtPosition(editor.selection.start, SLACK_URL_REGEX);
-            if (range) {
-                const comment = `// ${messageContent.replace(/\n/g, '\n// ')}`;
+            const commentSnippet = createCommentedSnippet(messageContent);
+
+            if (lineNumber + 1 === document.lineCount || !document.lineAt(lineNumber + 1).isEmptyOrWhitespace) {
                 const edit = new vscode.WorkspaceEdit();
-                edit.insert(document.uri, range.start, `${comment}\n`);
+                edit.insert(document.uri, document.lineAt(lineNumber).range.end, '\n');
                 await vscode.workspace.applyEdit(edit);
             }
+            editor.insertSnippet(commentSnippet, new vscode.Position(lineNumber + 1, 0));
         }
-    });
+    };
 
-    context.subscriptions.push(insertCommentedMessageDisposable);
+
+    context.subscriptions.push(vscode.commands.registerCommand('slackoscope.insertCommentedMessage', insertCommentedMessageHandler));
 }
 
 export function deactivate() {}
