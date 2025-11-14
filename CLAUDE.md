@@ -373,17 +373,105 @@ SLACK_URL_REGEX = /https:\/\/[a-zA-Z0-9-]+\.slack\.com\/archives\/([A-Z0-9]+)\/p
 
 **Stack**:
 - Mocha test framework
-- VS Code test runner (`@vscode/test-electron`)
+- VS Code test runner (`@vscode/test-cli` and `@vscode/test-electron`)
 - TypeScript tests compiled to `out/` directory
 
 **Running tests**:
 ```bash
-npm run compile-tests    # Compile tests
+npm run compile-tests    # Compile tests only
 npm run pretest          # Full build + compile tests
-npm run test             # Run tests in VS Code environment
+npm run test             # Run all tests in headless VS Code environment
 ```
 
-**Current status**: Minimal test coverage. Most logic untested.
+**Test files**:
+- `src/test/slackApi.test.ts` - Unit tests for Slack API module
+- `src/test/extension.test.ts` - E2E tests for extension functionality
+
+### Test Coverage
+
+**Unit Tests** (`slackApi.test.ts`):
+- Slack URL regex pattern validation
+- URL parsing and timestamp conversion
+- Multiple URL formats and edge cases
+- Invalid URL handling
+
+**E2E Tests** (`extension.test.ts`):
+- Extension activation and command registration
+- Toggle inline message functionality
+- Hover provider registration
+- Configuration management
+- Multi-language support (JavaScript, Python, TypeScript, Go, Rust)
+- Error handling for malformed URLs
+- Message caching behavior
+
+### Programmatic Testing (No Manual VS Code Required)
+
+The extension uses `@vscode/test-cli` which allows fully automated testing:
+
+**How it works**:
+1. Tests run in a headless VS Code instance (Electron)
+2. No manual VS Code window interaction required
+3. Perfect for CI/CD pipelines and automated workflows
+4. Tests can be run by LLM agents or automation tools
+
+**Key benefits for AI agents**:
+- Tests execute via `npm test` command
+- Results are captured in terminal output
+- No GUI interaction needed
+- Exit codes indicate test success/failure
+
+**Configuration** (`.vscode-test.mjs`):
+```javascript
+import {defineConfig} from '@vscode/test-cli'
+
+export default defineConfig({
+  files: 'out/test/**/*.test.js'
+})
+```
+
+### Writing New Tests
+
+**Unit test pattern** (no VS Code API):
+```typescript
+import * as assert from "assert"
+import {SLACK_URL_REGEX} from "../slackApi"
+
+suite("Unit Tests", () => {
+  test("should test pure logic", () => {
+    const result = someFunction()
+    assert.strictEqual(result, expectedValue)
+  })
+})
+```
+
+**E2E test pattern** (with VS Code API):
+```typescript
+import * as assert from "assert"
+import * as vscode from "vscode"
+
+suite("E2E Tests", () => {
+  test("should test extension behavior", async () => {
+    const doc = await vscode.workspace.openTextDocument({
+      content: "test content",
+      language: "javascript"
+    })
+    await vscode.window.showTextDocument(doc)
+
+    // Test extension functionality
+    await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
+
+    // Clean up
+    await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+  })
+})
+```
+
+**Best practices**:
+- Always clean up resources (close editors, dispose decorations)
+- Use async/await for all VS Code API calls
+- Group related tests in nested suites
+- Test both success and error paths
+- Mock external dependencies when possible
 
 ### Debug Configuration
 
@@ -567,24 +655,40 @@ npm run test
 
 ## Important Patterns
 
-### 1. Message Caching Pattern
+### 1. Session-Based Message Caching Pattern
 
-**Location**: `src/extension.ts:4`
+**Location**: `src/extension.ts:4-5`
+
+**Implementation**: Simple in-memory Map that clears on extension reload
 
 ```typescript
+// Simple in-memory cache that clears on extension reload
 const messageCache = new Map<string, string>()
 
 // Usage
-if (messageCache.has(url)) {
-  return messageCache.get(url)
+let messageContent = messageCache.get(slackUrl)
+if (!messageContent) {
+  messageContent = await slackApi.getMessageContent(slackUrl)
+  messageCache.set(slackUrl, messageContent)
 }
-const content = await slackApi.getMessageContent(url)
-messageCache.set(url, content)
 ```
 
-**Why**: Avoids redundant API calls for the same message
+**Key features**:
+- **Session-based**: Cache lives only during the current extension session
+- **Clears on reload**: Fresh messages after reloading VS Code
+- **Simple**: No persistence overhead or expiration logic needed
+- **Messages can update**: Reloading extension refreshes all cached messages
 
-**Scope**: Cache lives for entire extension session (cleared on reload)
+**Benefits**:
+- Avoids redundant API calls within a session
+- Messages stay fresh - cache clears on reload
+- API calls every few minutes are cheap enough
+- No stale data concerns
+
+**Cache management**:
+- Automatically clears when extension is reloaded or VS Code restarts
+- Clear cache manually during session: Run "Slackoscope: Clear Message Cache" command
+- No configuration needed
 
 ### 2. VS Code Disposable Pattern
 
@@ -781,15 +885,20 @@ npm test              # Run tests
 - **300f0a5**: Fixed TypeScript configuration
 - **e98c768**: Fixed comment insertion with snippet mechanism, added message caching
 
+### Recent Improvements (2025-11-14)
+
+- ✅ **Session-based message caching**: Simple in-memory cache that clears on reload (messages can update)
+- ✅ **Comprehensive test coverage**: Added unit tests for Slack API and e2e tests for extension
+- ✅ **Security updates**: Fixed all npm audit vulnerabilities
+- ✅ **Documentation**: Expanded README with detailed Slack bot setup instructions
+- ✅ **Testing infrastructure**: Documented programmatic testing approach for AI agents
+
 ### Future Improvements (Potential)
 
-- Expand test coverage (currently minimal)
-- Add unit tests for Slack URL parsing
-- Add integration tests for API calls
 - Consider adding message formatting (bold, code blocks, etc.)
-- Add configuration for cache expiration
 - Support for thread messages
 - Support for private channels
+- Add support for Slack message reactions display
 
 ---
 
