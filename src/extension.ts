@@ -1,6 +1,7 @@
 import * as vscode from "vscode"
 import {SlackApi, SLACK_URL_REGEX} from "./slackApi"
 
+// Simple in-memory cache that clears on extension reload
 const messageCache = new Map<string, string>()
 
 export function activate(context: vscode.ExtensionContext) {
@@ -66,7 +67,12 @@ export function activate(context: vscode.ExtensionContext) {
         const endPos = document.positionAt(match.index + match[0].length)
         const range = new vscode.Range(startPos, endPos)
 
-        const messageContent = await slackApi.getMessageContent(match[0])
+        const slackUrl = match[0]
+        let messageContent = messageCache.get(slackUrl)
+        if (!messageContent) {
+          messageContent = await slackApi.getMessageContent(slackUrl)
+          messageCache.set(slackUrl, messageContent)
+        }
 
         decorations.push({
           range,
@@ -99,7 +105,11 @@ export function activate(context: vscode.ExtensionContext) {
     const editor = vscode.window.activeTextEditor
     if (editor) {
       const document = editor.document
-      const messageContent = messageCache.get(url) || (await slackApi.getMessageContent(url))
+      let messageContent = messageCache.get(url)
+      if (!messageContent) {
+        messageContent = await slackApi.getMessageContent(url)
+        messageCache.set(url, messageContent)
+      }
 
       const commentSnippet = createCommentedSnippet(messageContent)
 
@@ -114,6 +124,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("slackoscope.insertCommentedMessage", insertCommentedMessageHandler)
+  )
+
+  // Register command to clear cache
+  context.subscriptions.push(
+    vscode.commands.registerCommand("slackoscope.clearCache", () => {
+      messageCache.clear()
+      vscode.window.showInformationMessage("Slackoscope: Message cache cleared")
+    })
   )
 }
 
