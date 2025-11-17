@@ -50,7 +50,8 @@ export async function activate(context: vscode.ExtensionContext) {
   // Initialize Slack API (will work even without token, but show warning)
   slackApi = new SlackApi(slackToken)
 
-  if (!slackToken) {
+  // Only show warning in non-test environments to avoid test noise
+  if (!slackToken && context.extensionMode !== vscode.ExtensionMode.Test) {
     vscode.window.showWarningMessage(
       'Slackoscope: Slack token not configured. Please set slackoscope.token in your VS Code settings to enable Slack features.'
     )
@@ -111,7 +112,8 @@ export async function activate(context: vscode.ExtensionContext) {
       decorationProvider.updateApi(slackApi)
       codeActionProvider.updateApi(slackApi)
 
-      if (!newSlackToken) {
+      // Only show warning in non-test environments
+      if (!newSlackToken && context.extensionMode !== vscode.ExtensionMode.Test) {
         vscode.window.showWarningMessage('Slackoscope: Slack token not configured')
       }
 
