@@ -8,8 +8,13 @@ export class SlackApi {
   public readonly SLACK_URL_REGEX = SLACK_URL_REGEX
 
   constructor(token: string) {
-    if (!token) throw new Error('Slack token is required')
     this.token = token
+  }
+
+  private ensureToken(): void {
+    if (!this.token) {
+      throw new Error('Slack token not configured. Please set slackoscope.token in your VS Code settings.')
+    }
   }
 
   parseSlackUrl(url: string): ParsedSlackUrl | null {
@@ -28,6 +33,7 @@ export class SlackApi {
   }
 
   async getMessage(channelId: string, ts: string): Promise<SlackMessage> {
+    this.ensureToken()
     const url = 'https://slack.com/api/conversations.history'
     const body = new URLSearchParams({
       channel: channelId,
@@ -53,6 +59,7 @@ export class SlackApi {
   }
 
   async getThreadReplies(channelId: string, threadTs: string): Promise<SlackMessage[]> {
+    this.ensureToken()
     const url = 'https://slack.com/api/conversations.replies'
     const params = new URLSearchParams({
       channel: channelId,
@@ -83,6 +90,7 @@ export class SlackApi {
   }
 
   async getUser(userId: string): Promise<SlackUser> {
+    this.ensureToken()
     const url = `https://slack.com/api/users.info?user=${userId}`
     const response = await fetch(url, {
       headers: {Authorization: `Bearer ${this.token}`}
@@ -102,6 +110,7 @@ export class SlackApi {
   }
 
   async getChannel(channelId: string): Promise<SlackChannel> {
+    this.ensureToken()
     const url = `https://slack.com/api/conversations.info?channel=${channelId}`
     const response = await fetch(url, {
       headers: {Authorization: `Bearer ${this.token}`}

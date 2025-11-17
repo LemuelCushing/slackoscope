@@ -44,18 +44,16 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   } catch (error) {
     console.error('Failed to load tokens from 1Password:', error)
-    vscode.window.showErrorMessage('Slackoscope: Failed to load tokens from 1Password')
-    return
+    vscode.window.showWarningMessage('Slackoscope: Failed to load tokens from 1Password, using plain text values')
   }
 
-  // Initialize Slack API
-  try {
-    slackApi = new SlackApi(slackToken)
-  } catch (error) {
-    if (error instanceof Error) {
-      vscode.window.showErrorMessage(`Slackoscope: ${error.message}`)
-    }
-    return
+  // Initialize Slack API (will work even without token, but show warning)
+  slackApi = new SlackApi(slackToken)
+
+  if (!slackToken) {
+    vscode.window.showWarningMessage(
+      'Slackoscope: Slack token not configured. Please set slackoscope.token in your VS Code settings to enable Slack features.'
+    )
   }
 
   // Initialize Linear API (optional)
@@ -108,13 +106,13 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       // Recreate Slack API with new token
-      try {
-        slackApi = new SlackApi(newSlackToken)
-        hoverProvider.updateApi(slackApi)
-        decorationProvider.updateApi(slackApi)
-        codeActionProvider.updateApi(slackApi)
-      } catch (error) {
-        console.error('Failed to update Slack API:', error)
+      slackApi = new SlackApi(newSlackToken)
+      hoverProvider.updateApi(slackApi)
+      decorationProvider.updateApi(slackApi)
+      codeActionProvider.updateApi(slackApi)
+
+      if (!newSlackToken) {
+        vscode.window.showWarningMessage('Slackoscope: Slack token not configured')
       }
 
       // Update Linear API
