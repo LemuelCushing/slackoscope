@@ -134,17 +134,18 @@ export class DecorationProvider {
 
         // Check if thread URL
         if (parsed.threadTs) {
-          const thread = this.cacheManager.getThread(parsed.threadTs)
-          if (thread) {
-            message = thread.parent
-            replyCount = thread.replies.length
-          } else {
+          let thread = this.cacheManager.getThread(parsed.threadTs)
+          if (!thread) {
             // Fetch thread
-            const fetchedThread = await this.slackApi.getThread(parsed.channelId, parsed.threadTs)
-            this.cacheManager.setThread(parsed.threadTs, fetchedThread)
-            message = fetchedThread.parent
-            replyCount = fetchedThread.replies.length
+            thread = await this.slackApi.getThread(parsed.channelId, parsed.threadTs)
+            this.cacheManager.setThread(parsed.threadTs, thread)
           }
+
+          // Find the specific message in the thread that the URL points to
+          const allMessages = [thread.parent, ...thread.replies]
+          const targetMessage = allMessages.find(m => m.ts === parsed.messageTs)
+          message = targetMessage || thread.parent
+          replyCount = thread.replies.length
         } else {
           // Regular message
           const cacheKey = `${parsed.channelId}:${parsed.messageTs}`

@@ -1,7 +1,7 @@
 import type {SlackMessage, SlackUser, SlackChannel, ParsedSlackUrl} from '../types/slack'
 
 export const SLACK_URL_REGEX =
-  /https:\/\/[a-zA-Z0-9-]+\.slack\.com\/archives\/([A-Z0-9]+)\/p(\d+)(?:\?thread_ts=(\d+\.\d+))?/
+  /https:\/\/[a-zA-Z0-9-]+\.slack\.com\/archives\/([A-Z0-9]+)\/p(\d+)(?:\?thread_ts=(\d+\.\d+)[^\s]*)?/
 
 export class SlackApi {
   private token: string
