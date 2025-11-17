@@ -7,17 +7,7 @@ const messageCache = new Map<string, string>()
 export function activate(context: vscode.ExtensionContext) {
   console.log("Slackoscope is now active!")
 
-  let slackApi: SlackApi
-  try {
-    slackApi = new SlackApi()
-  } catch (error) {
-    if (error instanceof Error) {
-      vscode.window.showErrorMessage(`Slackoscope: ${error.message}`)
-    } else {
-      vscode.window.showErrorMessage("Slackoscope: An unknown error occurred")
-    }
-    return
-  }
+  const slackApi = new SlackApi()
 
   // Register the hover provider
   context.subscriptions.push(

@@ -8,13 +8,13 @@ export class SlackApi {
 
   constructor() {
     this.token = vscode.workspace.getConfiguration("slackoscope").get<string>("token") ?? ""
-    if (!this.token) {
-      throw new Error("Slack API token not found. Please set it in the extension settings.")
-    }
   }
 
   async getMessageContent(url: string): Promise<string> {
     try {
+      if (!this.token) {
+        return "Slack API token not configured. Please set it in the extension settings."
+      }
       const {channel, ts} = this.parseSlackUrl(url)
       const params = new URLSearchParams({channel, latest: ts, inclusive: "true", limit: "1"})
 
