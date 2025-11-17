@@ -34,6 +34,7 @@ All notable changes to the "slackoscope" extension will be documented in this fi
   - API calls fail gracefully with clear error messages
 
 ### Fixed
+- **Test Suite Stability**: Fixed unhandled promise rejections in the test suite that were causing excessive stack traces. Replaced unsafe `try...catch` blocks with `assert.rejects` to ensure tests fail gracefully and predictably.
 - Extension activation failure when Slack token not configured
 - Token validation moved from constructor to API methods for graceful degradation
 

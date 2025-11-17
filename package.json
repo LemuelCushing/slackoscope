@@ -166,5 +166,9 @@
     "slack",
     "vscode",
     "extension"
-  ]
+  ],
+  "mocha": {
+    "ui": "tdd",
+    "color": true
+  }
 }
