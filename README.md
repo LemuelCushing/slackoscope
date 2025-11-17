@@ -9,84 +9,103 @@ View Slack messages inline in VS Code by hovering over message URLs.
 - Toggle inline display for all messages in a file
 - Session-based caching to minimize API calls
 
-## Setup
+## Slack Setup
 
-1. **Get a Slack API token**:
-   - Go to https://api.slack.com/apps → Create New App → From scratch
-   - Under "OAuth & Permissions", add scopes:
-     - User token: `channels:history`, `groups:history` (access channels you're in)
-     - Bot token: same scopes, but must invite bot to channels with `/invite @botname`
-   - Install to workspace and copy the token (`xoxp-` or `xoxb-`)
+You need a Slack API token to use this extension.
 
-2. **Configure in VS Code**:
-   - Open Settings (`Ctrl+,`)
-   - Search "slackoscope"
-   - Paste token into "Slackoscope: Token"
+### Option 1: User Token (Personal Use)
+
+Use this if you just want to access channels you're already in.
+
+1. Go to https://api.slack.com/apps
+2. Click **Create New App** → **From scratch**
+3. Give it a name (e.g., "Slackoscope") and select your workspace
+4. In the sidebar, click **OAuth & Permissions**
+5. Scroll to **User Token Scopes** and add:
+   - `channels:history` (read public channel messages)
+   - `groups:history` (read private channel messages)
+6. Scroll up and click **Install to Workspace**
+7. Click **Allow**
+8. Copy the **User OAuth Token** (starts with `xoxp-`)
+
+### Option 2: Bot Token (Team Use)
+
+Use this for team installations. Bot must be invited to each channel.
+
+1. Follow steps 1-4 above
+2. Under **Bot Token Scopes** (not User Token Scopes), add:
+   - `channels:history`
+   - `groups:history`
+   - `im:history` (optional, for DMs)
+   - `mpim:history` (optional, for group DMs)
+3. Click **Install to Workspace** → **Allow**
+4. Copy the **Bot User OAuth Token** (starts with `xoxb-`)
+5. In each Slack channel you want to read, type: `/invite @YourBotName`
+
+### Configure in VS Code
+
+1. Open Settings (`Ctrl+,` or `Cmd+,`)
+2. Search for "slackoscope"
+3. Paste your token into **Slackoscope: Token**
+4. Reload VS Code
 
 ## Usage
 
-Copy a Slack message link (right-click message → Copy link), paste it in your code:
+Copy a Slack message link (right-click message → **Copy link**), paste in your code:
 ```javascript
 // See: https://workspace.slack.com/archives/C1234ABCD/p1234567890123456
 ```
 
-Hover over the URL to see the message. Click "Insert Commented Message" to add it as a comment.
+Hover over the URL to preview. Click **Insert Commented Message** to add it as a comment.
 
-Toggle inline display: `Ctrl+Shift+P` → "Slackoscope: Toggle Inline Message Display"
+Toggle inline display: `Ctrl+Shift+P` → **Slackoscope: Toggle Inline Message Display**
 
-## Local Development & Testing
+## Development
 
-### Manual Testing (Extension Development Host)
-
-The easiest way to test changes:
-
-1. Open the project in VS Code
-2. Press **F5** (or Run → Start Debugging)
-3. A new VS Code window opens with the extension loaded
-4. Make changes to the code in the original window
-5. In the Extension Development Host window, press **Ctrl+R** (Cmd+R on Mac) to reload
-6. Test your changes
-
-Debug output appears in the Debug Console of the original window.
-
-### Build Commands
+### Quick Start
 
 ```bash
-npm run watch            # Auto-compile on file changes (recommended for dev)
-npm run compile          # Type-check + lint + build (production-ready check)
-npm run check-types      # TypeScript type checking only
-npm run lint             # ESLint only
+npm install              # Install dependencies
+npm run watch            # Auto-compile on changes (keep this running)
 ```
 
-### Test Commands
+Press **F5** to launch the Extension Development Host (new VS Code window with extension loaded).
+
+Make changes, then reload the Extension Development Host with **Ctrl+R** (Cmd+R on Mac).
+
+Debug output appears in the Debug Console of your main VS Code window.
+
+### Testing
+
+**Manual testing**: Press **F5** and test interactively in the Extension Development Host window.
+
+**Automated tests**: Run `npm test` (spawns a headless VS Code instance and runs all tests).
+
+### Build & Package
 
 ```bash
-npm test                 # Run all tests (automated, headless VS Code instance)
-npm run compile-tests    # Compile TypeScript tests to out/ directory
-npm run pretest          # Runs: compile-tests + compile + lint (prepares for testing)
+npm run compile          # Type-check + lint + build (verify before publishing)
+npm run package          # Build production .vsix file
 ```
 
-**What each does**:
-- `compile-tests`: Compiles `src/test/**/*.ts` → `out/test/**/*.js`
-- `pretest`: Full build pipeline before running tests (ensures everything is ready)
-- `test`: Runs compiled tests using `@vscode/test-cli` (spawns headless VS Code)
+### Publishing
 
-### Packaging
-
+Install `vsce` if you haven't:
 ```bash
-npm run package          # Build minified .vsix file for distribution
+npm install -g @vscode/vsce
 ```
 
-Install the `.vsix` manually: Extensions view → `...` menu → Install from VSIX
+Package and publish:
+```bash
+vsce package             # Creates .vsix file
+vsce publish             # Publishes to VS Code Marketplace
+```
 
-## Contributing
+Or publish a specific version:
+```bash
+vsce publish patch       # Bumps patch version (1.0.0 → 1.0.1)
+vsce publish minor       # Bumps minor version (1.0.0 → 1.1.0)
+vsce publish major       # Bumps major version (1.0.0 → 2.0.0)
+```
 
-1. Fork the repo
-2. Make changes
-3. Run `npm run compile` to verify
-4. Submit a PR
-
-## Links
-
-- [GitHub](https://github.com/LemuelCushing/slackoscope)
-- [Issues](https://github.com/LemuelCushing/slackoscope/issues)
+You'll need a Personal Access Token from Azure DevOps. See: https://code.visualstudio.com/api/working-with-extensions/publishing-extension
