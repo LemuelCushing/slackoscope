@@ -6,7 +6,7 @@ import {InlineDecorationManager, MessageFetcher} from "./inlineDecorationManager
 const messageCache = new Map<string, string>()
 
 // Message fetcher that integrates with the cache
-class CachedMessageFetcher implements MessageFetcher {
+export class CachedMessageFetcher implements MessageFetcher {
   constructor(private slackApi: SlackApi) {}
 
   async getMessageContent(url: string): Promise<string> {
@@ -17,6 +17,11 @@ class CachedMessageFetcher implements MessageFetcher {
     }
     return messageContent
   }
+}
+
+// Clear the message cache (exported for testing)
+export function clearMessageCache(): void {
+  messageCache.clear()
 }
 
 export function activate(context: vscode.ExtensionContext) {

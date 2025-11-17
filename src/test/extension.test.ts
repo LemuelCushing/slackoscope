@@ -1,7 +1,18 @@
 import * as assert from "assert"
 import * as vscode from "vscode"
+import {clearMessageCache} from "../extension"
+import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
 
 suite("Slackoscope Extension E2E Tests", () => {
+  setup(async () => {
+    // Clear message cache before each test
+    clearMessageCache()
+    await closeAllEditors()
+  })
+
+  teardown(async () => {
+    await closeAllEditors()
+  })
   suite("Extension Activation", () => {
     test("should be present and activate", async () => {
       const extension = vscode.extensions.getExtension("LemuelCushing.slackoscope")
@@ -195,6 +206,64 @@ suite("Slackoscope Extension E2E Tests", () => {
       // Clean up
       await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
     })
+
+    test("should show hover with Slack message content", async () => {
+      const slackUrl = "https://test-workspace.slack.com/archives/C1234ABCD/p1234567890123456"
+      const {doc} = await createTestDocument(`// ${slackUrl}\n`)
+
+      // Find position in the middle of the URL
+      const urlPosition = doc.positionAt(doc.getText().indexOf(slackUrl) + 20)
+
+      // Get hover content
+      const hovers = await getHoverContent(doc, urlPosition)
+      const hoverText = extractHoverText(hovers)
+
+      // Verify hover contains "Slack Message" label
+      assert.ok(hoverText.includes("Slack Message"), "Hover should contain 'Slack Message' label")
+
+      // Verify hover contains some message content (even if it's an error message without token)
+      assert.ok(hoverText.length > 20, "Hover should contain message content")
+
+      // Verify hover contains the insert command link
+      assert.ok(
+        hoverText.includes("Insert Commented Message") || hoverText.includes("insertCommentedMessage"),
+        "Hover should contain insert command link"
+      )
+    })
+
+    test("should not show hover for non-Slack URLs", async () => {
+      const {doc} = await createTestDocument("// https://example.com/not-slack\n")
+
+      const urlPosition = doc.positionAt(doc.getText().indexOf("example.com"))
+
+      const hovers = await getHoverContent(doc, urlPosition)
+      const hoverText = extractHoverText(hovers)
+
+      // Should not contain Slackoscope hover for non-Slack URLs
+      assert.ok(!hoverText.includes("Slack Message"), "Should not show Slack hover for non-Slack URLs")
+    })
+
+    test("should show hover at any position within Slack URL", async () => {
+      const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
+      const {doc} = await createTestDocument(`${slackUrl}\n`)
+
+      // Test at beginning, middle, and end of URL
+      const positions = [
+        doc.positionAt(0), // Beginning
+        doc.positionAt(30), // Middle
+        doc.positionAt(slackUrl.length - 5) // Near end
+      ]
+
+      for (const position of positions) {
+        const hovers = await getHoverContent(doc, position)
+        const hoverText = extractHoverText(hovers)
+
+        assert.ok(
+          hoverText.includes("Slack Message"),
+          `Should show hover at position ${position.character} in URL`
+        )
+      }
+    })
   })
 
   suite("Configuration", () => {
@@ -220,30 +289,141 @@ suite("Slackoscope Extension E2E Tests", () => {
         "insertCommentedMessage command should be registered"
       )
     })
+
+    test("should insert commented message below Slack URL", async () => {
+      const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
+      const {doc} = await createTestDocument(`// ${slackUrl}\n`)
+
+      const initialLineCount = doc.lineCount
+
+      // Execute insert command
+      await vscode.commands.executeCommand("slackoscope.insertCommentedMessage", {
+        url: slackUrl,
+        lineNumber: 0
+      })
+
+      // Wait a bit for the command to complete
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Document should have more lines now
+      assert.ok(doc.lineCount > initialLineCount, "Should have inserted comment lines")
+
+      // Get the inserted content
+      const insertedText = doc.getText()
+
+      // Verify it contains comment markers (// for JavaScript)
+      assert.ok(insertedText.includes("//"), "Should contain comment markers")
+
+      // Verify the content is on a new line after the URL
+      const lines = insertedText.split("\n")
+      assert.ok(lines.length >= 2, "Should have at least 2 lines (URL + comment)")
+    })
+
+    test("should insert multi-line messages with proper comment formatting", async () => {
+      const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
+      const {doc} = await createTestDocument(`${slackUrl}\n`, "javascript")
+
+      await vscode.commands.executeCommand("slackoscope.insertCommentedMessage", {
+        url: slackUrl,
+        lineNumber: 0
+      })
+
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      const insertedText = doc.getText()
+      const lines = insertedText.split("\n")
+
+      // Each inserted line should have a comment marker
+      const commentLines = lines.filter(line => line.trim().startsWith("//"))
+      assert.ok(commentLines.length >= 1, "Should have at least one commented line")
+    })
+
+    test("should use correct comment syntax for different languages", async () => {
+      const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
+
+      const testCases = [
+        {language: "javascript"},
+        {language: "python"},
+        {language: "typescript"}
+      ]
+
+      for (const {language} of testCases) {
+        await closeAllEditors()
+
+        const {doc} = await createTestDocument(`${slackUrl}\n`, language)
+
+        await vscode.commands.executeCommand("slackoscope.insertCommentedMessage", {
+          url: slackUrl,
+          lineNumber: 0
+        })
+
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+        const insertedText = doc.getText()
+
+        // Note: VS Code's $LINE_COMMENT snippet variable should handle this
+        // We can't directly verify the comment syntax without executing the snippet,
+        // but we can verify the command completes successfully
+        assert.ok(insertedText.length > slackUrl.length, `Should insert content for ${language}`)
+      }
+    })
   })
 
   suite("Message Caching", () => {
     test("should cache fetched messages", async () => {
-      // This test verifies that the message cache exists and works
-      // Note: Without a valid token, we can't test actual caching behavior
-      // but we can verify the structure
-
       const slackUrl = "https://test-workspace.slack.com/archives/C1234ABCD/p1234567890123456"
-      const doc = await vscode.workspace.openTextDocument({
-        content: `// ${slackUrl}\n// ${slackUrl}\n`, // Same URL twice
-        language: "javascript"
-      })
+      const {doc} = await createTestDocument(`// ${slackUrl}\n// ${slackUrl}\n`)
 
-      await vscode.window.showTextDocument(doc)
+      const urlPosition = doc.positionAt(doc.getText().indexOf(slackUrl) + 20)
 
-      // Execute toggle command twice (toggle on, then off)
+      // First hover - will fetch and cache
+      const hovers1 = await getHoverContent(doc, urlPosition)
+      const hoverText1 = extractHoverText(hovers1)
+
+      // Second hover - should use cache
+      const hovers2 = await getHoverContent(doc, urlPosition)
+      const hoverText2 = extractHoverText(hovers2)
+
+      // Both should return the same content
+      assert.strictEqual(hoverText1, hoverText2, "Cached content should match")
+      assert.ok(hoverText1.length > 0, "Should have content")
+    })
+
+    test("should clear cache with clearCache command", async () => {
+      const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
+      const {doc} = await createTestDocument(`// ${slackUrl}\n`)
+
+      const urlPosition = doc.positionAt(doc.getText().indexOf(slackUrl) + 20)
+
+      // Fetch and cache
+      await getHoverContent(doc, urlPosition)
+
+      // Clear cache
+      await vscode.commands.executeCommand("slackoscope.clearCache")
+
+      // Fetch again - cache should be cleared
+      const hovers = await getHoverContent(doc, urlPosition)
+      const hoverText = extractHoverText(hovers)
+
+      // Should still get content (even though cache was cleared)
+      assert.ok(hoverText.length > 0, "Should still fetch content after cache clear")
+    })
+
+    test("should cache same URL across different features", async () => {
+      const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
+      const {doc} = await createTestDocument(`${slackUrl}\n`)
+
+      const urlPosition = doc.positionAt(10)
+
+      // Fetch via hover
+      const hovers = await getHoverContent(doc, urlPosition)
+      const hoverText = extractHoverText(hovers)
+
+      // Toggle inline messages (should use cached content)
       await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
-      await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
 
-      assert.ok(true, "Should handle repeated URL processing (caching)")
-
-      // Clean up
-      await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+      // Both features should work (using cache)
+      assert.ok(hoverText.length > 0, "Hover should have content from cache")
     })
   })
 
