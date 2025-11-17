@@ -7,17 +7,7 @@ const messageCache = new Map<string, string>()
 export function activate(context: vscode.ExtensionContext) {
   console.log("Slackoscope is now active!")
 
-  let slackApi: SlackApi
-  try {
-    slackApi = new SlackApi()
-  } catch (error) {
-    if (error instanceof Error) {
-      vscode.window.showErrorMessage(`Slackoscope: ${error.message}`)
-    } else {
-      vscode.window.showErrorMessage("Slackoscope: An unknown error occurred")
-    }
-    return
-  }
+  const slackApi = new SlackApi()
 
   // Register the hover provider
   context.subscriptions.push(
@@ -61,10 +51,13 @@ export function activate(context: vscode.ExtensionContext) {
       const decorations: vscode.DecorationOptions[] = []
 
       const text = document.getText()
-      let match
-      while ((match = SLACK_URL_REGEX.exec(text))) {
-        const startPos = document.positionAt(match.index)
-        const endPos = document.positionAt(match.index + match[0].length)
+      // Use matchAll with a global regex to find all Slack URLs
+      const globalRegex = new RegExp(SLACK_URL_REGEX.source, "g")
+      const matches = text.matchAll(globalRegex)
+
+      for (const match of matches) {
+        const startPos = document.positionAt(match.index!)
+        const endPos = document.positionAt(match.index! + match[0].length)
         const range = new vscode.Range(startPos, endPos)
 
         const slackUrl = match[0]
