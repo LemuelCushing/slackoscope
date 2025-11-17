@@ -4,8 +4,19 @@ import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} 
 
 suite("Slackoscope Extension E2E Tests", () => {
   setup(async () => {
-    // Clear message cache before each test
-    await vscode.commands.executeCommand("slackoscope.clearCache")
+    // Ensure extension is activated before clearing cache
+    const extension = vscode.extensions.getExtension("LemuelCushing.slackoscope")
+    if (extension && !extension.isActive) {
+      await extension.activate()
+    }
+
+    // Clear message cache before each test (if extension is activated)
+    try {
+      await vscode.commands.executeCommand("slackoscope.clearCache")
+    } catch (error) {
+      // Ignore if command not found (extension not activated yet)
+    }
+
     await closeAllEditors()
   })
 
