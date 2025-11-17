@@ -4,5 +4,7 @@
     "noEmit": false,
     "outDir": "out",
     "types": ["mocha", "node"]
-  }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }
