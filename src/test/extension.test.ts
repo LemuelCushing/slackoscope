@@ -1,12 +1,11 @@
 import * as assert from "assert"
 import * as vscode from "vscode"
-import {clearMessageCache} from "../extension"
 import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
 
 suite("Slackoscope Extension E2E Tests", () => {
   setup(async () => {
     // Clear message cache before each test
-    clearMessageCache()
+    await vscode.commands.executeCommand("slackoscope.clearCache")
     await closeAllEditors()
   })
 
