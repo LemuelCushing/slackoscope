@@ -197,7 +197,8 @@ export class HoverProvider implements vscode.HoverProvider {
 
   private findSlackUrlAtPosition(document: vscode.TextDocument, position: vscode.Position): ParsedSlackUrl | null {
     const line = document.lineAt(position.line)
-    const matches = line.text.matchAll(this.slackApi.SLACK_URL_REGEX)
+    const globalRegex = new RegExp(this.slackApi.SLACK_URL_REGEX.source, 'g')
+    const matches = line.text.matchAll(globalRegex)
 
     for (const match of matches) {
       const startPos = line.range.start.translate(0, match.index!)

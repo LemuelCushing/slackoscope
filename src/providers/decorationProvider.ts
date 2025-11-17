@@ -114,7 +114,8 @@ export class DecorationProvider {
 
     const document = editor.document
     const text = document.getText()
-    const slackUrls = [...text.matchAll(this.slackApi.SLACK_URL_REGEX)]
+    const globalRegex = new RegExp(this.slackApi.SLACK_URL_REGEX.source, 'g')
+    const slackUrls = [...text.matchAll(globalRegex)]
 
     if (slackUrls.length === 0) {
       this.decorationManager.clearInlineDecorations(editor)
