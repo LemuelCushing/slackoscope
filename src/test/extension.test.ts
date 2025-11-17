@@ -13,7 +13,7 @@ suite("Slackoscope Extension E2E Tests", () => {
     // Clear message cache before each test (if extension is activated)
     try {
       await vscode.commands.executeCommand("slackoscope.clearCache")
-    } catch (error) {
+    } catch {
       // Ignore if command not found (extension not activated yet)
     }
 
