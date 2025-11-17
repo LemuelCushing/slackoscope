@@ -205,13 +205,8 @@ export class DecorationProvider {
     // Apply highlight decorations
     await this.updateHighlightDecorations(editor, results)
 
-    // Apply channel name decorations only when inline is disabled
-    // (when inline is enabled, you already see message context, so channel names would be redundant)
-    if (!this.settingsManager.inline.enabled) {
-      await this.updateChannelNameDecorations(editor, slackUrls)
-    } else {
-      this.decorationManager.clearChannelNameDecorations(editor)
-    }
+    // Apply channel name decorations (independent of inline preview setting)
+    await this.updateChannelNameDecorations(editor, slackUrls)
   }
 
   private async updateHighlightDecorations(

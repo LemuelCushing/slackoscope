@@ -14,7 +14,7 @@ const createCommentedSnippet = (message: string): vscode.SnippetString => {
 export async function insertCommentCommand(
   slackApi: SlackApi,
   cacheManager: CacheManager,
-  args: {url: string; lineNumber?: number; isThread?: boolean}
+  args: {url: string}
 ): Promise<void> {
   const editor = vscode.window.activeTextEditor
   if (!editor) {
@@ -31,25 +31,25 @@ export async function insertCommentCommand(
 
     let messageContent: string
 
-    // Handle thread vs regular message
+    // Handle thread reply vs regular message
+    // For thread URLs, show only the specific message, not the whole thread
     if (parsed.threadTs) {
-      const thread = cacheManager.getThread(parsed.threadTs)
-      if (thread) {
-        // Format thread as multi-line comment
-        const lines = [`Thread: ${thread.parent.text}`, '']
-        thread.replies.forEach((reply, i) => {
-          lines.push(`Reply ${i + 1}: ${reply.text}`)
-        })
-        messageContent = lines.join('\n')
+      // Fetch the thread
+      let thread = cacheManager.getThread(parsed.threadTs)
+      if (!thread) {
+        thread = await slackApi.getThread(parsed.channelId, parsed.threadTs)
+        cacheManager.setThread(parsed.threadTs, thread)
+      }
+
+      // Find the specific message in the thread
+      const allMessages = [thread.parent, ...thread.replies]
+      const targetMessage = allMessages.find(m => m.ts === parsed.messageTs)
+
+      if (targetMessage) {
+        messageContent = targetMessage.text
       } else {
-        // Fetch thread
-        const fetchedThread = await slackApi.getThread(parsed.channelId, parsed.threadTs)
-        cacheManager.setThread(parsed.threadTs, fetchedThread)
-        const lines = [`Thread: ${fetchedThread.parent.text}`, '']
-        fetchedThread.replies.forEach((reply, i) => {
-          lines.push(`Reply ${i + 1}: ${reply.text}`)
-        })
-        messageContent = lines.join('\n')
+        // Fallback to parent if we can't find the specific message
+        messageContent = thread.parent.text
       }
     } else {
       // Regular message
@@ -64,17 +64,28 @@ export async function insertCommentCommand(
 
     const commentSnippet = createCommentedSnippet(messageContent)
 
-    // If lineNumber is provided, insert at that line
-    // Otherwise, insert at current cursor position
-    if (args.lineNumber !== undefined) {
-      const document = editor.document
-      if (args.lineNumber + 1 === document.lineCount || !document.lineAt(args.lineNumber + 1).isEmptyOrWhitespace) {
+    // Find the line containing the URL
+    const document = editor.document
+    let urlLineNumber: number | null = null
+
+    for (let i = 0; i < document.lineCount; i++) {
+      if (document.lineAt(i).text.includes(args.url)) {
+        urlLineNumber = i
+        break
+      }
+    }
+
+    // Insert after the URL line
+    if (urlLineNumber !== null) {
+      // Ensure there's a blank line after the URL if needed
+      if (urlLineNumber + 1 === document.lineCount || !document.lineAt(urlLineNumber + 1).isEmptyOrWhitespace) {
         const edit = new vscode.WorkspaceEdit()
-        edit.insert(document.uri, document.lineAt(args.lineNumber).range.end, '\n')
+        edit.insert(document.uri, document.lineAt(urlLineNumber).range.end, '\n')
         await vscode.workspace.applyEdit(edit)
       }
-      await editor.insertSnippet(commentSnippet, new vscode.Position(args.lineNumber + 1, 0))
+      await editor.insertSnippet(commentSnippet, new vscode.Position(urlLineNumber + 1, 0))
     } else {
+      // Fallback: insert at cursor if URL not found
       await editor.insertSnippet(commentSnippet)
     }
   } catch (error) {

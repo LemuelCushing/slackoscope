@@ -112,24 +112,51 @@ export class HoverProvider implements vscode.HoverProvider {
 
     const {parent, replies} = thread
 
+    // Find the specific message the URL points to
+    const allMessages = [parent, ...replies]
+    const targetMessage = allMessages.find(m => m.ts === parsed.messageTs) || parent
+
     // Channel name
     if (this.settingsManager.hover.showChannel) {
       const channel = await this.fetchChannel(parsed.channelId)
       const channelIcon = channel.isPrivate ? '🔒' : '📧'
-      markdown.appendMarkdown(
-        `🧵 ${channelIcon} **#${channel.name}** - Thread (${replies.length} ${replies.length === 1 ? 'reply' : 'replies'})\n\n`
-      )
-    } else {
-      markdown.appendMarkdown(`🧵 **Thread** (${replies.length} ${replies.length === 1 ? 'reply' : 'replies'})\n\n`)
+      markdown.appendMarkdown(`🧵 ${channelIcon} **#${channel.name}**\n\n`)
     }
 
-    // Check for Linear issues
-    const allMessages = [parent, ...replies]
-    const allText = allMessages.map(m => m.text).join(' ')
-    const linearIssues = findLinearIssues(allText)
+    // User name + timestamp for the specific message
+    const user = await this.fetchUser(targetMessage.user)
+    const relativeTime = formatRelativeTime(new Date(parseFloat(targetMessage.ts) * 1000))
+    const isReply = targetMessage.ts !== parent.ts
+    const label = isReply ? `Thread reply by` : `Thread started by`
+    markdown.appendMarkdown(`**${label} @${user.displayName}** (${relativeTime}):\n\n`)
 
+    // Message text
+    markdown.appendMarkdown(`> ${targetMessage.text}\n\n`)
+
+    // Thread context
+    if (replies.length > 0) {
+      markdown.appendMarkdown(`_Part of thread with ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}_\n\n`)
+    }
+
+    // Files from this specific message
+    if (this.settingsManager.hover.showFiles && targetMessage.files && targetMessage.files.length > 0) {
+      markdown.appendMarkdown(`\n📎 **Files**:\n\n`)
+
+      for (const file of targetMessage.files) {
+        if (file.mimetype.startsWith('image/') && file.thumb) {
+          markdown.appendMarkdown(`![${file.name}](${file.thumb})\n\n`)
+        }
+
+        const sizeKb = Math.round(file.size / 1024)
+        const icon = file.mimetype.startsWith('image/') ? '🖼️' : '📄'
+        markdown.appendMarkdown(`${icon} **${file.name}** (${sizeKb} KB)\n`)
+        markdown.appendMarkdown(`[View](${file.url})\n\n`)
+      }
+    }
+
+    // Check for Linear issues in this message
+    const linearIssues = findLinearIssues(targetMessage.text)
     if (linearIssues.length > 0 && this.linearApi) {
-      // Fetch first Linear issue
       const issueId = linearIssues[0]
       let issue = this.cacheManager.getLinearIssue(issueId)
 
@@ -148,40 +175,9 @@ export class HoverProvider implements vscode.HoverProvider {
       }
     }
 
-    // Original message
-    const parentUser = await this.fetchUser(parent.user)
-    markdown.appendMarkdown(`**Original** by **@${parentUser.displayName}**:\n\n`)
-    markdown.appendMarkdown(`> ${parent.text}\n\n`)
-
-    // Latest reply
-    if (replies.length > 0) {
-      const latestReply = replies[replies.length - 1]
-      const replyUser = await this.fetchUser(latestReply.user)
-      const replyTime = formatRelativeTime(new Date(parseFloat(latestReply.ts) * 1000))
-
-      markdown.appendMarkdown(`**Latest reply** by **@${replyUser.displayName}** (${replyTime}):\n\n`)
-      markdown.appendMarkdown(`> ${latestReply.text}\n\n`)
-    }
-
-    // Files from parent message
-    if (this.settingsManager.hover.showFiles && parent.files && parent.files.length > 0) {
-      markdown.appendMarkdown(`\n📎 **Files** (from original message):\n\n`)
-
-      for (const file of parent.files) {
-        if (file.mimetype.startsWith('image/') && file.thumb) {
-          markdown.appendMarkdown(`![${file.name}](${file.thumb})\n\n`)
-        }
-
-        const sizeKb = Math.round(file.size / 1024)
-        const icon = file.mimetype.startsWith('image/') ? '🖼️' : '📄'
-        markdown.appendMarkdown(`${icon} **${file.name}** (${sizeKb} KB)\n`)
-        markdown.appendMarkdown(`[View](${file.url})\n\n`)
-      }
-    }
-
-    // Command links
+    // Command links - pass the specific message, not the whole thread
     markdown.appendMarkdown(
-      `[Insert as Comment](command:slackoscope.insertCommentedMessage?${encodeURIComponent(JSON.stringify({url: parsed.fullUrl, isThread: true}))})`
+      `[Insert as Comment](command:slackoscope.insertCommentedMessage?${encodeURIComponent(JSON.stringify({url: parsed.fullUrl}))})`
     )
 
     // Add Linear command if issue found
