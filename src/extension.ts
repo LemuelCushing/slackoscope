@@ -1,13 +1,33 @@
 import * as vscode from "vscode"
 import {SlackApi, SLACK_URL_REGEX} from "./slackApi"
+import {InlineDecorationManager, MessageFetcher} from "./inlineDecorationManager"
 
 // Simple in-memory cache that clears on extension reload
 const messageCache = new Map<string, string>()
+
+// Message fetcher that integrates with the cache
+class CachedMessageFetcher implements MessageFetcher {
+  constructor(private slackApi: SlackApi) {}
+
+  async getMessageContent(url: string): Promise<string> {
+    let messageContent = messageCache.get(url)
+    if (!messageContent) {
+      messageContent = await this.slackApi.getMessageContent(url)
+      messageCache.set(url, messageContent)
+    }
+    return messageContent
+  }
+}
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("Slackoscope is now active!")
 
   const slackApi = new SlackApi()
+  const messageFetcher = new CachedMessageFetcher(slackApi)
+
+  // Create inline decoration manager
+  const inlineDecorationManager = new InlineDecorationManager(messageFetcher)
+  context.subscriptions.push(inlineDecorationManager)
 
   // Register the hover provider
   context.subscriptions.push(
@@ -19,11 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         const slackUrl = document.getText(range)
-        let messageContent = messageCache.get(slackUrl)
-        if (!messageContent) {
-          messageContent = await slackApi.getMessageContent(slackUrl)
-          messageCache.set(slackUrl, messageContent)
-        }
+        const messageContent = await messageFetcher.getMessageContent(slackUrl)
 
         const hoverMessage = new vscode.MarkdownString(`**Slack Message:** ${messageContent}`)
         hoverMessage.isTrusted = true
@@ -37,51 +53,12 @@ export function activate(context: vscode.ExtensionContext) {
   )
 
   // Register a command to toggle inline message display
-  const inlineMessageDecorationType = vscode.window.createTextEditorDecorationType({
-    after: {
-      margin: "0 0 0 1em",
-      textDecoration: "none; opacity: 0.7;"
-    }
-  })
-
-  const toggleInlineMessageDisposable = vscode.commands.registerCommand("slackoscope.toggleInlineMessage", async () => {
-    const editor = vscode.window.activeTextEditor
-    if (editor) {
-      const document = editor.document
-      const decorations: vscode.DecorationOptions[] = []
-
-      const text = document.getText()
-      // Use matchAll with a global regex to find all Slack URLs
-      const globalRegex = new RegExp(SLACK_URL_REGEX.source, "g")
-      const matches = text.matchAll(globalRegex)
-
-      for (const match of matches) {
-        const startPos = document.positionAt(match.index!)
-        const endPos = document.positionAt(match.index! + match[0].length)
-        const range = new vscode.Range(startPos, endPos)
-
-        const slackUrl = match[0]
-        let messageContent = messageCache.get(slackUrl)
-        if (!messageContent) {
-          messageContent = await slackApi.getMessageContent(slackUrl)
-          messageCache.set(slackUrl, messageContent)
-        }
-
-        decorations.push({
-          range,
-          renderOptions: {
-            after: {
-              contentText: `  |  ${messageContent}`
-            }
-          }
-        })
-      }
-
-      editor.setDecorations(inlineMessageDecorationType, decorations)
-    }
-  })
-
-  context.subscriptions.push(toggleInlineMessageDisposable)
+  context.subscriptions.push(
+    vscode.commands.registerCommand("slackoscope.toggleInlineMessage", async () => {
+      const editor = vscode.window.activeTextEditor
+      await inlineDecorationManager.toggle(editor)
+    })
+  )
 
   // Since getLnanguageConfiguration is not available in the API, we can lean into on
   // snippet insertion to handle comments. For now, we will always use multiple line comments
@@ -98,11 +75,7 @@ export function activate(context: vscode.ExtensionContext) {
     const editor = vscode.window.activeTextEditor
     if (editor) {
       const document = editor.document
-      let messageContent = messageCache.get(url)
-      if (!messageContent) {
-        messageContent = await slackApi.getMessageContent(url)
-        messageCache.set(url, messageContent)
-      }
+      const messageContent = await messageFetcher.getMessageContent(url)
 
       const commentSnippet = createCommentedSnippet(messageContent)
 

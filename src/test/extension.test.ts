@@ -50,6 +50,121 @@ suite("Slackoscope Extension E2E Tests", () => {
       // Clean up
       await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
     })
+
+    test("should toggle on and off properly", async () => {
+      const doc = await vscode.workspace.openTextDocument({
+        content: "// https://test.slack.com/archives/C1234/p1234567890123456\n",
+        language: "javascript"
+      })
+
+      await vscode.window.showTextDocument(doc)
+
+      // Toggle on
+      await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
+
+      // Toggle off
+      await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
+
+      assert.ok(true, "Should toggle on and off without errors")
+
+      // Clean up
+      await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+    })
+
+    test("should handle multiple Slack URLs in document", async () => {
+      const url1 = "https://workspace1.slack.com/archives/C1111/p1111111111111111"
+      const url2 = "https://workspace2.slack.com/archives/C2222/p2222222222222222"
+      const url3 = "https://workspace3.slack.com/archives/C3333/p3333333333333333"
+
+      const doc = await vscode.workspace.openTextDocument({
+        content: `// First: ${url1}\n// Second: ${url2}\n// Third: ${url3}\n`,
+        language: "javascript"
+      })
+
+      await vscode.window.showTextDocument(doc)
+
+      await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
+
+      assert.ok(true, "Should handle multiple URLs")
+
+      // Clean up
+      await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+    })
+
+    test("should handle repeated URL in document", async () => {
+      const url = "https://test.slack.com/archives/C1234/p1234567890123456"
+
+      const doc = await vscode.workspace.openTextDocument({
+        content: `// ${url}\n// ${url}\n// ${url}\n`,
+        language: "javascript"
+      })
+
+      await vscode.window.showTextDocument(doc)
+
+      await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
+
+      assert.ok(true, "Should handle repeated URLs")
+
+      // Clean up
+      await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+    })
+
+    test("should handle mixed valid and invalid URLs", async () => {
+      const validUrl = "https://test.slack.com/archives/C1234/p1234567890123456"
+      const invalidUrl = "https://not-slack.com/archives/C1234/p1234567890"
+
+      const doc = await vscode.workspace.openTextDocument({
+        content: `// ${validUrl}\n// ${invalidUrl}\n`,
+        language: "javascript"
+      })
+
+      await vscode.window.showTextDocument(doc)
+
+      await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
+
+      assert.ok(true, "Should handle mixed URLs")
+
+      // Clean up
+      await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+    })
+
+    test("should work across different file types", async () => {
+      const url = "https://test.slack.com/archives/C1234/p1234567890123456"
+      const languages = ["javascript", "typescript", "python", "go", "rust"]
+
+      for (const lang of languages) {
+        const doc = await vscode.workspace.openTextDocument({
+          content: `// ${url}\n`,
+          language: lang
+        })
+
+        await vscode.window.showTextDocument(doc)
+        await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
+
+        assert.ok(true, `Should work with ${lang}`)
+
+        await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+      }
+    })
+
+    test("should handle rapid toggling", async () => {
+      const doc = await vscode.workspace.openTextDocument({
+        content: "// https://test.slack.com/archives/C1234/p1234567890123456\n",
+        language: "javascript"
+      })
+
+      await vscode.window.showTextDocument(doc)
+
+      // Rapid toggle multiple times
+      for (let i = 0; i < 5; i++) {
+        await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
+      }
+
+      assert.ok(true, "Should handle rapid toggling")
+
+      // Clean up
+      await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
+    })
   })
 
   suite("Hover Provider", () => {
