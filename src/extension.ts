@@ -1,109 +1,143 @@
-import * as vscode from "vscode"
-import {SlackApi, SLACK_URL_REGEX} from "./slackApi"
-import {InlineDecorationManager, MessageFetcher} from "./inlineDecorationManager"
+import * as vscode from 'vscode'
+import {SlackApi} from './api/slackApi'
+import {LinearApi} from './api/linearApi'
+import {OnePasswordApi} from './api/onePasswordApi'
+import {CacheManager} from './cache/cacheManager'
+import {SettingsManager} from './ui/settingsManager'
+import {HoverProvider} from './providers/hoverProvider'
+import {DecorationProvider} from './providers/decorationProvider'
+import {CodeActionProvider} from './providers/codeActionProvider'
+import {registerCommands} from './commands'
 
-// Simple in-memory cache that clears on extension reload
-const messageCache = new Map<string, string>()
+let slackApi: SlackApi
+let linearApi: LinearApi | null = null
+let cacheManager: CacheManager
+let settingsManager: SettingsManager
+let decorationProvider: DecorationProvider
+let hoverProvider: HoverProvider
 
-// Message fetcher that integrates with the cache
-export class CachedMessageFetcher implements MessageFetcher {
-  constructor(private slackApi: SlackApi) {}
+export async function activate(context: vscode.ExtensionContext) {
+  console.log('Slackoscope is activating...')
 
-  async getMessageContent(url: string): Promise<string> {
-    let messageContent = messageCache.get(url)
-    if (!messageContent) {
-      messageContent = await this.slackApi.getMessageContent(url)
-      messageCache.set(url, messageContent)
-    }
-    return messageContent
+  // Initialize managers
+  settingsManager = new SettingsManager()
+  cacheManager = new CacheManager()
+
+  // Initialize 1Password API
+  const onePasswordApi = new OnePasswordApi()
+  const has1Password = await onePasswordApi.isAvailable()
+
+  if (!has1Password) {
+    console.warn('1Password CLI not available, using plain text tokens')
   }
-}
 
-// Clear the message cache (exported for testing)
-export function clearMessageCache(): void {
-  messageCache.clear()
-}
+  // Load tokens (with 1Password if available)
+  let slackToken = settingsManager.slackToken
+  let linearToken = settingsManager.linearToken
 
-export function activate(context: vscode.ExtensionContext) {
-  console.log("Slackoscope is now active!")
+  try {
+    if (has1Password) {
+      slackToken = await onePasswordApi.readSecret(slackToken)
+      if (linearToken) {
+        linearToken = await onePasswordApi.readSecret(linearToken)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load tokens from 1Password:', error)
+    vscode.window.showErrorMessage('Slackoscope: Failed to load tokens from 1Password')
+    return
+  }
 
-  const slackApi = new SlackApi()
-  const messageFetcher = new CachedMessageFetcher(slackApi)
+  // Initialize Slack API
+  try {
+    slackApi = new SlackApi(slackToken)
+  } catch (error) {
+    if (error instanceof Error) {
+      vscode.window.showErrorMessage(`Slackoscope: ${error.message}`)
+    }
+    return
+  }
 
-  // Create inline decoration manager
-  const inlineDecorationManager = new InlineDecorationManager(messageFetcher)
-  context.subscriptions.push(inlineDecorationManager)
+  // Initialize Linear API (optional)
+  if (linearToken) {
+    try {
+      linearApi = new LinearApi(linearToken)
+    } catch (error) {
+      console.warn('Linear API not available:', error)
+    }
+  }
 
-  // Register the hover provider
+  // Register providers
+  hoverProvider = new HoverProvider(slackApi, cacheManager, settingsManager, linearApi)
+  decorationProvider = new DecorationProvider(slackApi, cacheManager, settingsManager)
+  const codeActionProvider = new CodeActionProvider(slackApi, cacheManager)
+
   context.subscriptions.push(
-    vscode.languages.registerHoverProvider("*", {
-      async provideHover(document, position) {
-        const range = document.getWordRangeAtPosition(position, SLACK_URL_REGEX)
-        if (!range) {
-          return
+    vscode.languages.registerHoverProvider('*', hoverProvider),
+    vscode.languages.registerCodeActionsProvider('*', codeActionProvider, {
+      providedCodeActionKinds: [vscode.CodeActionKind.RefactorInline]
+    })
+  )
+
+  // Register commands
+  registerCommands(context, {
+    slackApi,
+    linearApi,
+    cacheManager,
+    settingsManager,
+    decorationProvider
+  })
+
+  // Watch for settings changes
+  context.subscriptions.push(
+    settingsManager.onDidChange(async () => {
+      // Reload tokens
+      let newSlackToken = settingsManager.slackToken
+      let newLinearToken = settingsManager.linearToken
+
+      try {
+        if (has1Password) {
+          newSlackToken = await onePasswordApi.readSecret(newSlackToken)
+          if (newLinearToken) {
+            newLinearToken = await onePasswordApi.readSecret(newLinearToken)
+          }
         }
+      } catch (error) {
+        console.error('Failed to reload tokens:', error)
+        return
+      }
 
-        const slackUrl = document.getText(range)
-        const messageContent = await messageFetcher.getMessageContent(slackUrl)
+      // Recreate Slack API with new token
+      try {
+        slackApi = new SlackApi(newSlackToken)
+        hoverProvider.updateApi(slackApi)
+        decorationProvider.updateApi(slackApi)
+        codeActionProvider.updateApi(slackApi)
+      } catch (error) {
+        console.error('Failed to update Slack API:', error)
+      }
 
-        const hoverMessage = new vscode.MarkdownString(`**Slack Message:** ${messageContent}`)
-        hoverMessage.isTrusted = true
-        const jsonParams = JSON.stringify({url: slackUrl, lineNumber: position.line})
-        const insertCommandUrl = `command:slackoscope.insertCommentedMessage?${encodeURIComponent(jsonParams)}`
-        hoverMessage.appendMarkdown(`\n\n[Insert Commented Message](${insertCommandUrl})`)
-
-        return new vscode.Hover(hoverMessage)
+      // Update Linear API
+      if (newLinearToken) {
+        try {
+          linearApi = new LinearApi(newLinearToken)
+          hoverProvider.updateLinearApi(linearApi)
+        } catch (error) {
+          console.warn('Failed to update Linear API:', error)
+          linearApi = null
+          hoverProvider.updateLinearApi(null)
+        }
+      } else {
+        linearApi = null
+        hoverProvider.updateLinearApi(null)
       }
     })
   )
 
-  // Register a command to toggle inline message display
-  context.subscriptions.push(
-    vscode.commands.registerCommand("slackoscope.toggleInlineMessage", async () => {
-      const editor = vscode.window.activeTextEditor
-      await inlineDecorationManager.toggle(editor)
-    })
-  )
-
-  // Since getLnanguageConfiguration is not available in the API, we can lean into on
-  // snippet insertion to handle comments. For now, we will always use multiple line comments
-  const createCommentedSnippet = (message: string): vscode.SnippetString => {
-    return new vscode.SnippetString(
-      message
-        .split("\n")
-        .map(line => `$LINE_COMMENT ${line}`)
-        .join("\n")
-    )
-  }
-
-  const insertCommentedMessageHandler = async ({url, lineNumber}: {url: string; lineNumber: number}) => {
-    const editor = vscode.window.activeTextEditor
-    if (editor) {
-      const document = editor.document
-      const messageContent = await messageFetcher.getMessageContent(url)
-
-      const commentSnippet = createCommentedSnippet(messageContent)
-
-      if (lineNumber + 1 === document.lineCount || !document.lineAt(lineNumber + 1).isEmptyOrWhitespace) {
-        const edit = new vscode.WorkspaceEdit()
-        edit.insert(document.uri, document.lineAt(lineNumber).range.end, "\n")
-        await vscode.workspace.applyEdit(edit)
-      }
-      editor.insertSnippet(commentSnippet, new vscode.Position(lineNumber + 1, 0))
-    }
-  }
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("slackoscope.insertCommentedMessage", insertCommentedMessageHandler)
-  )
-
-  // Register command to clear cache
-  context.subscriptions.push(
-    vscode.commands.registerCommand("slackoscope.clearCache", () => {
-      messageCache.clear()
-      vscode.window.showInformationMessage("Slackoscope: Message cache cleared")
-    })
-  )
+  console.log('Slackoscope activated successfully')
 }
 
-export function deactivate() {}
+export function deactivate() {
+  cacheManager?.clearAll()
+  decorationProvider?.dispose()
+}
