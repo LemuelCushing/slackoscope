@@ -47,7 +47,7 @@ export class SlackApi {
       return {
         ts: ts,
         user: "U1234567890",
-        text: "This is a test message",
+        text: "Mock Slack message content",
         channel: channelId
       }
     }
