@@ -49,7 +49,10 @@ export interface SlackFile {
   id: string
   name: string
   mimetype: string
-  url: string
+  url?: string // Public URL (may not always be present)
+  url_private?: string // Private URL requiring auth
+  url_private_download?: string // Direct download URL
+  permalink?: string // Permanent link
   thumb?: string // Thumbnail URL for images
   size: number
 }
