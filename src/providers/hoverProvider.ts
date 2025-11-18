@@ -88,22 +88,28 @@ export class HoverProvider implements vscode.HoverProvider {
         }
 
         // File info
-        const sizeKb = Math.round(file.size / 1024)
         const icon = file.mimetype.startsWith('image/') ? '🖼️' : '📄'
-        markdown.appendMarkdown(`${icon} **${file.name}** (${sizeKb} KB)\n`)
-        markdown.appendMarkdown(`[View](${file.url})\n\n`)
+        if (this.settingsManager.hover.showFileInfo) {
+          const sizeKb = Math.round(file.size / 1024)
+          markdown.appendMarkdown(`${icon} [**${file.name}**](${file.url}) (${sizeKb} KB)\n\n`)
+        } else {
+          markdown.appendMarkdown(`${icon} [**${file.name}**](${file.url})\n\n`)
+        }
       }
     }
 
     // Check for Linear issues (including from bot messages)
     const linearIssueId = extractLinearIssueFromMessage(message)
+    console.log('Linear issue ID extracted:', linearIssueId, 'Linear API available:', !!this.linearApi)
     if (linearIssueId && this.linearApi) {
       let issue = this.cacheManager.getLinearIssue(linearIssueId)
 
       if (!issue) {
         try {
+          console.log('Fetching Linear issue:', linearIssueId)
           issue = await this.linearApi.getIssueByIdentifier(linearIssueId)
           this.cacheManager.setLinearIssue(linearIssueId, issue)
+          console.log('Linear issue fetched:', issue)
         } catch (error) {
           console.error('Failed to fetch Linear issue:', error)
         }
@@ -113,6 +119,8 @@ export class HoverProvider implements vscode.HoverProvider {
         markdown.appendMarkdown(`📋 **Linear**: [${issue.identifier}](${issue.url}) - "${issue.title}"\n`)
         markdown.appendMarkdown(`Status: ${issue.state.name}\n\n`)
       }
+    } else if (linearIssueId && !this.linearApi) {
+      console.warn('Linear issue found but Linear API not initialized')
     }
 
     // Command links
@@ -177,24 +185,30 @@ export class HoverProvider implements vscode.HoverProvider {
           markdown.appendMarkdown(`![${file.name}](${file.thumb})\n\n`)
         }
 
-        const sizeKb = Math.round(file.size / 1024)
         const icon = file.mimetype.startsWith('image/') ? '🖼️' : '📄'
-        markdown.appendMarkdown(`${icon} **${file.name}** (${sizeKb} KB)\n`)
-        markdown.appendMarkdown(`[View](${file.url})\n\n`)
+        if (this.settingsManager.hover.showFileInfo) {
+          const sizeKb = Math.round(file.size / 1024)
+          markdown.appendMarkdown(`${icon} [**${file.name}**](${file.url}) (${sizeKb} KB)\n\n`)
+        } else {
+          markdown.appendMarkdown(`${icon} [**${file.name}**](${file.url})\n\n`)
+        }
       }
     }
 
     // Check for Linear issues (including from bot messages)
     const linearIssueId = extractLinearIssueFromMessage(targetMessage)
+    console.log('[Thread] Linear issue ID extracted:', linearIssueId, 'Linear API available:', !!this.linearApi)
     if (linearIssueId && this.linearApi) {
       let issue = this.cacheManager.getLinearIssue(linearIssueId)
 
       if (!issue) {
         try {
+          console.log('[Thread] Fetching Linear issue:', linearIssueId)
           issue = await this.linearApi.getIssueByIdentifier(linearIssueId)
           this.cacheManager.setLinearIssue(linearIssueId, issue)
+          console.log('[Thread] Linear issue fetched:', issue)
         } catch (error) {
-          console.error('Failed to fetch Linear issue:', error)
+          console.error('[Thread] Failed to fetch Linear issue:', error)
         }
       }
 
@@ -202,6 +216,8 @@ export class HoverProvider implements vscode.HoverProvider {
         markdown.appendMarkdown(`📋 **Linear**: [${issue.identifier}](${issue.url}) - "${issue.title}"\n`)
         markdown.appendMarkdown(`Status: ${issue.state.name}\n\n`)
       }
+    } else if (linearIssueId && !this.linearApi) {
+      console.warn('[Thread] Linear issue found but Linear API not initialized')
     }
 
     // Command links - pass the specific message, not the whole thread

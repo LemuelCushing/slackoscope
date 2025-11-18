@@ -61,8 +61,17 @@ export class DecorationManager {
     }
 
     const decorationOptions = decorations.map(({range, text}) => {
+      let contentText = text
+      if (settings.position === 'above') {
+        // Add newline at end to place text on line above
+        contentText = text + '\n'
+      } else if (settings.position === 'below') {
+        // Add newline at start to place text on line below
+        contentText = '\n' + text
+      }
+
       const renderOptions: vscode.DecorationInstanceRenderOptions =
-        settings.position === 'above' ? {before: {contentText: text}} : {after: {contentText: text}}
+        settings.position === 'above' ? {before: {contentText}} : {after: {contentText}}
 
       return {range, renderOptions}
     })

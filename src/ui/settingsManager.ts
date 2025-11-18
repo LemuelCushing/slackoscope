@@ -40,7 +40,8 @@ export class SettingsManager {
   get hover(): HoverSettings {
     return {
       showChannel: this.config.get('hover.showChannel', true),
-      showFiles: this.config.get('hover.showFiles', true)
+      showFiles: this.config.get('hover.showFiles', true),
+      showFileInfo: this.config.get('hover.showFileInfo', true)
     }
   }
 

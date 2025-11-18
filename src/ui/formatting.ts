@@ -81,19 +81,30 @@ export function extractLinearIssueFromMessage(message: {
   attachments?: Array<{from_url?: string}>
 }): string | null {
   // Check if this is a Linear Asks bot message
-  if (message.bot_profile?.name === 'Linear Asks' && message.attachments) {
-    // Look for Linear URL in attachments
-    for (const attachment of message.attachments) {
-      if (attachment.from_url) {
-        const match = attachment.from_url.match(LINEAR_URL_REGEX)
-        if (match) {
-          return match[1] // Return the issue identifier (e.g., "TST-10291")
+  if (message.bot_profile?.name === 'Linear Asks') {
+    console.log('Found Linear Asks bot message:', message.text)
+    if (message.attachments) {
+      console.log('Attachments found:', message.attachments)
+      // Look for Linear URL in attachments
+      for (const attachment of message.attachments) {
+        if (attachment.from_url) {
+          console.log('Checking attachment URL:', attachment.from_url)
+          const match = attachment.from_url.match(LINEAR_URL_REGEX)
+          if (match) {
+            console.log('Found Linear issue from attachment:', match[1])
+            return match[1] // Return the issue identifier (e.g., "TST-10291")
+          }
         }
       }
+    } else {
+      console.log('No attachments in Linear Asks bot message')
     }
   }
 
   // Fallback: check message text for Linear issue identifiers
   const issues = findLinearIssues(message.text)
+  if (issues.length > 0) {
+    console.log('Found Linear issue from text:', issues[0])
+  }
   return issues.length > 0 ? issues[0] : null
 }

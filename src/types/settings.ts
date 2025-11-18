@@ -21,6 +21,7 @@ export interface InlineSettings {
 export interface HoverSettings {
   showChannel: boolean
   showFiles: boolean
+  showFileInfo: boolean
 }
 
 export interface HighlightingSettings {

@@ -127,6 +127,12 @@
           "order": 31,
           "markdownDescription": "**Show files in hover** — Display attached files in the hover tooltip"
         },
+        "slackoscope.hover.showFileInfo": {
+          "type": "boolean",
+          "default": true,
+          "order": 32,
+          "markdownDescription": "**Show file info** — Display file size and type information for attached files"
+        },
         "slackoscope.highlighting.enabled": {
           "type": "boolean",
           "default": false,
