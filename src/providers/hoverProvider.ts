@@ -29,6 +29,10 @@ export class HoverProvider implements vscode.HoverProvider {
     const parsed = this.findSlackUrlAtPosition(document, position)
     if (!parsed) return null
 
+    console.log('=== HOVER TRIGGERED ===')
+    console.log('URL:', parsed.fullUrl)
+    console.log('Is thread:', !!parsed.threadTs)
+
     try {
       const markdown = new vscode.MarkdownString()
       markdown.isTrusted = true
@@ -40,6 +44,9 @@ export class HoverProvider implements vscode.HoverProvider {
       } else {
         await this.buildMessageHover(markdown, parsed)
       }
+
+      console.log('=== FINAL MARKDOWN ===')
+      console.log(markdown.value)
 
       return new vscode.Hover(markdown)
     } catch (error) {
