@@ -120,7 +120,7 @@ export class HoverProvider implements vscode.HoverProvider {
             }
           }
         }
-      } catch (error) {
+      } catch {
         // Not a thread parent or error fetching - that's okay
       }
     }
