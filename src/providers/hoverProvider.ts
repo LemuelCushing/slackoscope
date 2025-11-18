@@ -82,6 +82,8 @@ export class HoverProvider implements vscode.HoverProvider {
       markdown.appendMarkdown(`\n📎 **Files**:\n\n`)
 
       for (const file of message.files) {
+        console.log('Rendering file:', {name: file.name, url: file.url, mimetype: file.mimetype, size: file.size})
+
         // Image preview
         if (file.mimetype.startsWith('image/') && file.thumb) {
           markdown.appendMarkdown(`![${file.name}](${file.thumb})\n\n`)
@@ -91,9 +93,13 @@ export class HoverProvider implements vscode.HoverProvider {
         const icon = file.mimetype.startsWith('image/') ? '🖼️' : '📄'
         if (this.settingsManager.hover.showFileInfo) {
           const sizeKb = Math.round(file.size / 1024)
-          markdown.appendMarkdown(`${icon} [**${file.name}**](${file.url}) (${sizeKb} KB)\n\n`)
+          const linkMarkdown = `${icon} [**${file.name}**](${file.url}) (${sizeKb} KB)\n\n`
+          console.log('File link markdown:', linkMarkdown)
+          markdown.appendMarkdown(linkMarkdown)
         } else {
-          markdown.appendMarkdown(`${icon} [**${file.name}**](${file.url})\n\n`)
+          const linkMarkdown = `${icon} [**${file.name}**](${file.url})\n\n`
+          console.log('File link markdown (no info):', linkMarkdown)
+          markdown.appendMarkdown(linkMarkdown)
         }
       }
     }
@@ -181,6 +187,8 @@ export class HoverProvider implements vscode.HoverProvider {
       markdown.appendMarkdown(`\n📎 **Files**:\n\n`)
 
       for (const file of targetMessage.files) {
+        console.log('[Thread] Rendering file:', {name: file.name, url: file.url, mimetype: file.mimetype, size: file.size})
+
         if (file.mimetype.startsWith('image/') && file.thumb) {
           markdown.appendMarkdown(`![${file.name}](${file.thumb})\n\n`)
         }
@@ -188,9 +196,13 @@ export class HoverProvider implements vscode.HoverProvider {
         const icon = file.mimetype.startsWith('image/') ? '🖼️' : '📄'
         if (this.settingsManager.hover.showFileInfo) {
           const sizeKb = Math.round(file.size / 1024)
-          markdown.appendMarkdown(`${icon} [**${file.name}**](${file.url}) (${sizeKb} KB)\n\n`)
+          const linkMarkdown = `${icon} [**${file.name}**](${file.url}) (${sizeKb} KB)\n\n`
+          console.log('[Thread] File link markdown:', linkMarkdown)
+          markdown.appendMarkdown(linkMarkdown)
         } else {
-          markdown.appendMarkdown(`${icon} [**${file.name}**](${file.url})\n\n`)
+          const linkMarkdown = `${icon} [**${file.name}**](${file.url})\n\n`
+          console.log('[Thread] File link markdown (no info):', linkMarkdown)
+          markdown.appendMarkdown(linkMarkdown)
         }
       }
     }

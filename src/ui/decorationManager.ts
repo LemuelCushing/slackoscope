@@ -61,19 +61,25 @@ export class DecorationManager {
     }
 
     const decorationOptions = decorations.map(({range, text}) => {
-      let contentText = text
+      let adjustedRange = range
+
+      // Adjust range based on position
       if (settings.position === 'above') {
-        // Add newline at end to place text on line above
-        contentText = text + '\n'
+        // Place decoration at start of line
+        const lineStart = new vscode.Position(range.start.line, 0)
+        adjustedRange = new vscode.Range(lineStart, lineStart)
       } else if (settings.position === 'below') {
-        // Add newline at start to place text on line below
-        contentText = '\n' + text
+        // Place decoration at end of line
+        const line = editor.document.lineAt(range.start.line)
+        const lineEnd = line.range.end
+        adjustedRange = new vscode.Range(lineEnd, lineEnd)
       }
+      // For 'right', keep original range
 
       const renderOptions: vscode.DecorationInstanceRenderOptions =
-        settings.position === 'above' ? {before: {contentText}} : {after: {contentText}}
+        settings.position === 'above' ? {before: {contentText: text + '\n'}} : {after: {contentText: text}}
 
-      return {range, renderOptions}
+      return {range: adjustedRange, renderOptions}
     })
 
     editor.setDecorations(this.inlineDecorationType!, decorationOptions)
