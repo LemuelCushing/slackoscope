@@ -6,7 +6,7 @@
     "url": "https://github.com/LemuelCushing/slackoscope"
   },
   "description": "Take a peek at slack msgs from inside your code. For those with no short term memory",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "engines": {
     "vscode": "^1.91.0"
   },
