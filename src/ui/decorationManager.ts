@@ -125,15 +125,19 @@ export class DecorationManager {
       this.channelNameDecorationTypes.name.dispose()
     }
 
+    // Hide the original channel ID by making it transparent
     const dimType = vscode.window.createTextEditorDecorationType({
-      opacity: '0.3'
+      color: 'transparent',
+      letterSpacing: '-100em' // Collapse the space taken by the channel ID
     })
 
+    // Show channel name in place of the ID using 'before' decoration
     const nameType = vscode.window.createTextEditorDecorationType({
-      after: {
+      before: {
         contentText: '',
         color: 'inherit',
-        fontWeight: 'bold'
+        fontWeight: 'normal',
+        textDecoration: 'none'
       }
     })
 
@@ -143,7 +147,7 @@ export class DecorationManager {
     const nameDecorations = decorations.map(d => ({
       range: d.channelIdRange,
       renderOptions: {
-        after: {
+        before: {
           contentText: `#${d.channelName}`
         }
       }

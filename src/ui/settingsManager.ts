@@ -32,7 +32,8 @@ export class SettingsManager {
       showUser: this.config.get('inline.showUser', false),
       fontSize: validatedFontSize,
       color: this.config.get('inline.color', 'rgba(128, 128, 128, 0.6)'),
-      fontStyle: this.config.get('inline.fontStyle', 'italic')
+      fontStyle: this.config.get('inline.fontStyle', 'italic'),
+      showChannelName: this.config.get('inline.showChannelName', true)
     }
   }
 

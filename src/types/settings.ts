@@ -15,6 +15,7 @@ export interface InlineSettings {
   fontSize: number
   color: string
   fontStyle: 'normal' | 'italic'
+  showChannelName: boolean
 }
 
 export interface HoverSettings {

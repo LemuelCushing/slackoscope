@@ -62,6 +62,7 @@ export function getMessageAge(ts: string): 'today' | 'recent' | 'old' {
 }
 
 const LINEAR_ISSUE_REGEX = /\b([A-Z]{2,}-\d+)\b/g
+const LINEAR_URL_REGEX = /linear\.app\/[^/]+\/issue\/([A-Z]{2,}-\d+)/
 
 export function findLinearIssues(text: string): string[] {
   const matches = text.matchAll(LINEAR_ISSUE_REGEX)
@@ -72,4 +73,27 @@ export function findLinearIssues(text: string): string[] {
   }
 
   return Array.from(issues)
+}
+
+export function extractLinearIssueFromMessage(message: {
+  text: string
+  bot_profile?: {name: string}
+  attachments?: Array<{from_url?: string}>
+}): string | null {
+  // Check if this is a Linear Asks bot message
+  if (message.bot_profile?.name === 'Linear Asks' && message.attachments) {
+    // Look for Linear URL in attachments
+    for (const attachment of message.attachments) {
+      if (attachment.from_url) {
+        const match = attachment.from_url.match(LINEAR_URL_REGEX)
+        if (match) {
+          return match[1] // Return the issue identifier (e.g., "TST-10291")
+        }
+      }
+    }
+  }
+
+  // Fallback: check message text for Linear issue identifiers
+  const issues = findLinearIssues(message.text)
+  return issues.length > 0 ? issues[0] : null
 }

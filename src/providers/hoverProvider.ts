@@ -3,7 +3,7 @@ import type {SlackApi} from '../api/slackApi'
 import type {LinearApi} from '../api/linearApi'
 import type {CacheManager} from '../cache/cacheManager'
 import type {SettingsManager} from '../ui/settingsManager'
-import {formatRelativeTime, findLinearIssues} from '../ui/formatting'
+import {formatRelativeTime, extractLinearIssueFromMessage} from '../ui/formatting'
 import type {SlackUser, SlackChannel, ParsedSlackUrl} from '../types/slack'
 
 export class HoverProvider implements vscode.HoverProvider {
@@ -95,10 +95,40 @@ export class HoverProvider implements vscode.HoverProvider {
       }
     }
 
+    // Check for Linear issues (including from bot messages)
+    const linearIssueId = extractLinearIssueFromMessage(message)
+    if (linearIssueId && this.linearApi) {
+      let issue = this.cacheManager.getLinearIssue(linearIssueId)
+
+      if (!issue) {
+        try {
+          issue = await this.linearApi.getIssueByIdentifier(linearIssueId)
+          this.cacheManager.setLinearIssue(linearIssueId, issue)
+        } catch (error) {
+          console.error('Failed to fetch Linear issue:', error)
+        }
+      }
+
+      if (issue) {
+        markdown.appendMarkdown(`📋 **Linear**: [${issue.identifier}](${issue.url}) - "${issue.title}"\n`)
+        markdown.appendMarkdown(`Status: ${issue.state.name}\n\n`)
+      }
+    }
+
     // Command links
     markdown.appendMarkdown(
       `[Insert as Comment](command:slackoscope.insertCommentedMessage?${encodeURIComponent(JSON.stringify({url: parsed.fullUrl}))})`
     )
+
+    // Add Linear command if issue found
+    if (linearIssueId && this.linearApi) {
+      const issue = this.cacheManager.getLinearIssue(linearIssueId)
+      if (issue) {
+        markdown.appendMarkdown(
+          ` | [Post Current File to ${issue.identifier}](command:slackoscope.postToLinear?${encodeURIComponent(JSON.stringify({issueId: issue.id, identifier: issue.identifier}))})`
+        )
+      }
+    }
   }
 
   private async buildThreadHover(markdown: vscode.MarkdownString, parsed: ParsedSlackUrl): Promise<void> {
@@ -154,16 +184,15 @@ export class HoverProvider implements vscode.HoverProvider {
       }
     }
 
-    // Check for Linear issues in this message
-    const linearIssues = findLinearIssues(targetMessage.text)
-    if (linearIssues.length > 0 && this.linearApi) {
-      const issueId = linearIssues[0]
-      let issue = this.cacheManager.getLinearIssue(issueId)
+    // Check for Linear issues (including from bot messages)
+    const linearIssueId = extractLinearIssueFromMessage(targetMessage)
+    if (linearIssueId && this.linearApi) {
+      let issue = this.cacheManager.getLinearIssue(linearIssueId)
 
       if (!issue) {
         try {
-          issue = await this.linearApi.getIssueByIdentifier(issueId)
-          this.cacheManager.setLinearIssue(issueId, issue)
+          issue = await this.linearApi.getIssueByIdentifier(linearIssueId)
+          this.cacheManager.setLinearIssue(linearIssueId, issue)
         } catch (error) {
           console.error('Failed to fetch Linear issue:', error)
         }
@@ -181,8 +210,8 @@ export class HoverProvider implements vscode.HoverProvider {
     )
 
     // Add Linear command if issue found
-    if (linearIssues.length > 0 && this.linearApi) {
-      const issue = this.cacheManager.getLinearIssue(linearIssues[0])
+    if (linearIssueId && this.linearApi) {
+      const issue = this.cacheManager.getLinearIssue(linearIssueId)
       if (issue) {
         markdown.appendMarkdown(
           ` | [Post Current File to ${issue.identifier}](command:slackoscope.postToLinear?${encodeURIComponent(JSON.stringify({issueId: issue.id, identifier: issue.identifier}))})`

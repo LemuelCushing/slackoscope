@@ -6,6 +6,29 @@ export interface SlackMessage {
   replyCount?: number
   files?: SlackFile[]
   channel: string // Channel ID
+  bot_profile?: SlackBotProfile
+  attachments?: SlackAttachment[]
+}
+
+export interface SlackBotProfile {
+  id: string
+  name: string
+  deleted?: boolean
+  updated?: number
+  app_id?: string
+  user_id?: string
+  icons?: {
+    image_36?: string
+    image_48?: string
+    image_72?: string
+  }
+  team_id?: string
+}
+
+export interface SlackAttachment {
+  from_url?: string
+  id?: number
+  [key: string]: unknown
 }
 
 export interface SlackUser {

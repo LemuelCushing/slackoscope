@@ -43,17 +43,44 @@
         "slackoscope.token": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Slack API token. Can be a plain text token or a 1Password reference (e.g., `op://vault/item/field`). See [1Password documentation](https://developer.1password.com/docs/vscode/) for details."
+          "order": 1,
+          "markdownDescription": "**Required:** Slack API token. Can be a plain text token or a 1Password reference (e.g., `op://vault/item/field`). See [1Password documentation](https://developer.1password.com/docs/vscode/) for details."
         },
         "slackoscope.linearToken": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Linear API token (optional). Can be a plain text token or a 1Password reference (e.g., `op://vault/item/field`). See [1Password documentation](https://developer.1password.com/docs/vscode/) for details."
+          "order": 2,
+          "markdownDescription": "**Optional:** Linear API token for posting code to Linear issues. Can be a plain text token or a 1Password reference (e.g., `op://vault/item/field`). See [1Password documentation](https://developer.1password.com/docs/vscode/) for details."
         },
         "slackoscope.inline.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show inline message preview next to Slack URLs"
+          "order": 10,
+          "markdownDescription": "**Enable inline previews** — Show message content next to Slack URLs in your code"
+        },
+        "slackoscope.inline.showChannelName": {
+          "type": "boolean",
+          "default": true,
+          "order": 11,
+          "markdownDescription": "**Show channel names** — Replace channel IDs with readable names (e.g., `C1234ABC` → `#general`)"
+        },
+        "slackoscope.inline.showUser": {
+          "type": "boolean",
+          "default": false,
+          "order": 12,
+          "markdownDescription": "**Show user names** — Display the message author in inline preview"
+        },
+        "slackoscope.inline.showTime": {
+          "type": "boolean",
+          "default": true,
+          "order": 13,
+          "markdownDescription": "**Show timestamp** — Display message timestamp in inline preview"
+        },
+        "slackoscope.inline.useRelativeTime": {
+          "type": "boolean",
+          "default": false,
+          "order": 14,
+          "markdownDescription": "**Use relative time** — Show timestamps as relative (e.g., '5 minutes ago') instead of absolute dates"
         },
         "slackoscope.inline.position": {
           "type": "string",
@@ -63,32 +90,14 @@
             "below"
           ],
           "default": "right",
-          "description": "Where to display inline preview"
-        },
-        "slackoscope.inline.showTime": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show timestamp in inline preview"
-        },
-        "slackoscope.inline.useRelativeTime": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show relative time (e.g., '5 minutes ago') instead of absolute time"
-        },
-        "slackoscope.inline.showUser": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show user name in inline preview"
+          "order": 20,
+          "markdownDescription": "**Preview position** — Where to display inline message preview relative to the URL"
         },
         "slackoscope.inline.fontSize": {
           "type": "number",
           "default": 12,
-          "description": "Font size for inline preview (in pixels)"
-        },
-        "slackoscope.inline.color": {
-          "type": "string",
-          "default": "rgba(128, 128, 128, 0.6)",
-          "description": "Color for inline preview text (CSS color)"
+          "order": 21,
+          "markdownDescription": "**Font size** — Font size for inline preview text (10-24 pixels)"
         },
         "slackoscope.inline.fontStyle": {
           "type": "string",
@@ -97,37 +106,50 @@
             "italic"
           ],
           "default": "italic",
-          "description": "Font style for inline preview"
+          "order": 22,
+          "markdownDescription": "**Font style** — Font style for inline preview text"
+        },
+        "slackoscope.inline.color": {
+          "type": "string",
+          "default": "rgba(128, 128, 128, 0.6)",
+          "order": 23,
+          "markdownDescription": "**Text color** — Color for inline preview text (CSS color value)"
         },
         "slackoscope.hover.showChannel": {
           "type": "boolean",
           "default": true,
-          "description": "Show channel name in hover tooltip"
+          "order": 30,
+          "markdownDescription": "**Show channel in hover** — Display channel name in the hover tooltip"
         },
         "slackoscope.hover.showFiles": {
           "type": "boolean",
           "default": true,
-          "description": "Show attached files in hover tooltip"
+          "order": 31,
+          "markdownDescription": "**Show files in hover** — Display attached files in the hover tooltip"
         },
         "slackoscope.highlighting.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Highlight Slack URLs by message age"
+          "order": 40,
+          "markdownDescription": "**Enable URL highlighting** — Highlight Slack URLs based on message age"
         },
         "slackoscope.highlighting.todayColor": {
           "type": "string",
           "default": "rgba(100, 200, 100, 0.1)",
-          "description": "Background color for messages from today"
+          "order": 41,
+          "markdownDescription": "**Today's color** — Background color for messages from today"
         },
         "slackoscope.highlighting.oldDays": {
           "type": "number",
           "default": 7,
-          "description": "Number of days before a message is considered old"
+          "order": 42,
+          "markdownDescription": "**Old message threshold** — Number of days before a message is considered old"
         },
         "slackoscope.highlighting.oldColor": {
           "type": "string",
           "default": "rgba(200, 100, 100, 0.1)",
-          "description": "Background color for old messages"
+          "order": 43,
+          "markdownDescription": "**Old message color** — Background color for old messages"
         }
       }
     }

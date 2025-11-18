@@ -206,8 +206,12 @@ export class DecorationProvider {
     // Apply highlight decorations
     await this.updateHighlightDecorations(editor, results)
 
-    // Apply channel name decorations (independent of inline preview setting)
-    await this.updateChannelNameDecorations(editor, slackUrls)
+    // Apply channel name decorations if enabled
+    if (this.settingsManager.inline.showChannelName) {
+      await this.updateChannelNameDecorations(editor, slackUrls)
+    } else {
+      this.decorationManager.clearChannelNameDecorations(editor)
+    }
   }
 
   private async updateHighlightDecorations(
