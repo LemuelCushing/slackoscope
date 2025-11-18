@@ -1,10 +1,20 @@
 import * as vscode from "vscode"
 import type {SlackMessage, SlackUser, SlackChannel, ParsedSlackUrl, SlackFile} from "../types/slack"
 import type {LinearIssue} from "../types/linear"
+import {
+  TEST_MESSAGES,
+  TEST_USERS,
+  TEST_CHANNELS,
+  TEST_LINEAR_ISSUES,
+  TEST_THREAD_REPLIES,
+  getTestMessage,
+  getTestUser,
+  getTestChannel,
+  getTestLinearIssue
+} from "./fixtures"
 
 /**
- * Mock SlackApi for testing
- * Can be configured with predefined responses for specific URLs
+ * Mock SlackApi for testing with realistic data from fixtures
  */
 export class MockSlackApi {
   private responses = new Map<string, string>()
@@ -46,6 +56,12 @@ export class MockSlackApi {
 
   async getMessage(channelId: string, ts: string): Promise<SlackMessage> {
     const override = this.messageOverrides.get(`${channelId}:${ts}`)
+    const fixtureMessage = getTestMessage(ts)
+
+    if (fixtureMessage) {
+      return {...fixtureMessage, ...override}
+    }
+
     return {
       ts,
       user: "U1234567890",
@@ -57,47 +73,56 @@ export class MockSlackApi {
 
   async getThread(channelId: string, threadTs: string): Promise<{parent: SlackMessage; replies: SlackMessage[]}> {
     const parentOverride = this.messageOverrides.get(`${channelId}:${threadTs}`)
-    const parent: SlackMessage = {
-      ts: threadTs,
-      user: "U1234567890",
-      text: "Mock thread parent message",
-      channel: channelId,
-      ...parentOverride
-    }
+    const fixtureParent = getTestMessage(threadTs)
 
-    const replies: SlackMessage[] = [
-      {
-        ts: "1234567890.123457",
-        user: "U1234567891",
+    const parent: SlackMessage = fixtureParent
+      ? {...fixtureParent, ...parentOverride}
+      : {
+          ts: threadTs,
+          user: "U1234567890",
+          text: "Mock thread parent message",
+          channel: channelId,
+          ...parentOverride
+        }
+
+    const replies: SlackMessage[] =
+      threadTs === TEST_MESSAGES.threadParent.ts ? TEST_THREAD_REPLIES : [{
+        ts: `${threadTs.split('.')[0]}.${(parseInt(threadTs.split('.')[1]) + 1).toString().padStart(6, '0')}`,
+        user: "U9876543210",
         text: "Mock thread reply",
         channel: channelId
-      }
-    ]
+      }]
 
     return {parent, replies}
   }
 
   async getUser(userId: string): Promise<SlackUser> {
-    return {
-      id: userId,
-      name: "testuser",
-      realName: "Test User",
-      displayName: "Test User",
-      avatarUrl: "https://example.com/avatar.jpg"
-    }
+    const fixtureUser = getTestUser(userId)
+    return (
+      fixtureUser ?? {
+        id: userId,
+        name: "testuser",
+        realName: "Test User",
+        displayName: "Test User",
+        avatarUrl: "https://example.com/avatar.jpg"
+      }
+    )
   }
 
   async getChannel(channelId: string): Promise<SlackChannel> {
-    return {
-      id: channelId,
-      name: "test-channel",
-      isPrivate: false
-    }
+    const fixtureChannel = getTestChannel(channelId)
+    return (
+      fixtureChannel ?? {
+        id: channelId,
+        name: "test-channel",
+        isPrivate: false
+      }
+    )
   }
 }
 
 /**
- * Mock LinearApi for testing
+ * Mock LinearApi for testing with realistic data from fixtures
  */
 export class MockLinearApi {
   private issues = new Map<string, LinearIssue>()
@@ -107,20 +132,22 @@ export class MockLinearApi {
   }
 
   async getIssueByIdentifier(identifier: string): Promise<LinearIssue> {
-    const issue = this.issues.get(identifier)
-    if (!issue) {
-      return {
-        id: "mock-id",
-        identifier,
-        title: "Mock Linear Issue",
-        url: `https://linear.app/test/issue/${identifier}`,
-        state: {
-          name: "In Progress",
-          type: "started"
-        }
+    const customIssue = this.issues.get(identifier)
+    if (customIssue) return customIssue
+
+    const fixtureIssue = getTestLinearIssue(identifier)
+    if (fixtureIssue) return fixtureIssue
+
+    return {
+      id: "mock-id",
+      identifier,
+      title: "Mock Linear Issue",
+      url: `https://linear.app/test/issue/${identifier}`,
+      state: {
+        name: "In Progress",
+        type: "started"
       }
     }
-    return issue
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
