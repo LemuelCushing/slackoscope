@@ -462,10 +462,12 @@ suite("Slackoscope Extension E2E Tests", () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
 
       await config.update("hover.showFileInfo", false, vscode.ConfigurationTarget.Global)
+      await new Promise(resolve => setTimeout(resolve, 50))
       let fileInfoSetting = config.get("hover.showFileInfo")
       assert.strictEqual(fileInfoSetting, false, "Should disable file info")
 
       await config.update("hover.showFileInfo", true, vscode.ConfigurationTarget.Global)
+      await new Promise(resolve => setTimeout(resolve, 50))
       fileInfoSetting = config.get("hover.showFileInfo")
       assert.strictEqual(fileInfoSetting, true, "Should enable file info")
 
