@@ -82,17 +82,6 @@
           "order": 14,
           "markdownDescription": "**Use relative time** — Show timestamps as relative (e.g., '5 minutes ago') instead of absolute dates"
         },
-        "slackoscope.inline.position": {
-          "type": "string",
-          "enum": [
-            "right",
-            "above",
-            "below"
-          ],
-          "default": "right",
-          "order": 20,
-          "markdownDescription": "**Preview position** — Where to display inline message preview relative to the URL"
-        },
         "slackoscope.inline.fontSize": {
           "type": "number",
           "default": 12,

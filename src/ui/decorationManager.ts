@@ -1,5 +1,5 @@
-import * as vscode from 'vscode'
-import type {InlineSettings, HighlightingSettings} from '../types/settings'
+import * as vscode from "vscode"
+import type {InlineSettings, HighlightingSettings} from "../types/settings"
 
 export interface DecorationData {
   range: vscode.Range
@@ -9,29 +9,32 @@ export interface DecorationData {
 export class DecorationManager {
   private inlineDecorationType: vscode.TextEditorDecorationType | null = null
   private highlightDecorationTypes: Map<string, vscode.TextEditorDecorationType> = new Map()
-  private channelNameDecorationTypes: {dim: vscode.TextEditorDecorationType; name: vscode.TextEditorDecorationType} | null = null
+  private channelNameDecorationTypes: {
+    dim: vscode.TextEditorDecorationType
+    name: vscode.TextEditorDecorationType
+  } | null = null
 
   createInlineDecorationType(settings: InlineSettings): vscode.TextEditorDecorationType {
     // Dispose existing
     this.inlineDecorationType?.dispose()
 
     let renderOptions: vscode.DecorationRenderOptions
-    if (settings.position === 'above') {
+    if (settings.position === "above") {
       renderOptions = {
         before: {
           color: settings.color,
           fontStyle: settings.fontStyle,
-          contentText: '' // Will be set per-decoration
+          contentText: "" // Will be set per-decoration
         },
         isWholeLine: false
       }
-    } else if (settings.position === 'below') {
+    } else if (settings.position === "below") {
       renderOptions = {
         after: {
           color: settings.color,
           fontStyle: settings.fontStyle,
-          contentText: '',
-          margin: '0 0 0 0'
+          contentText: "",
+          margin: "0 0 0 0"
         },
         isWholeLine: true
       }
@@ -41,8 +44,8 @@ export class DecorationManager {
         after: {
           color: settings.color,
           fontStyle: settings.fontStyle,
-          contentText: '',
-          margin: '0 0 0 1em'
+          contentText: "",
+          margin: "0 0 0 1em"
         }
       }
     }
@@ -51,11 +54,7 @@ export class DecorationManager {
     return this.inlineDecorationType
   }
 
-  applyInlineDecorations(
-    editor: vscode.TextEditor,
-    decorations: DecorationData[],
-    settings: InlineSettings
-  ): void {
+  applyInlineDecorations(editor: vscode.TextEditor, decorations: DecorationData[], settings: InlineSettings): void {
     if (!this.inlineDecorationType) {
       this.createInlineDecorationType(settings)
     }
@@ -64,11 +63,11 @@ export class DecorationManager {
       let adjustedRange = range
 
       // Adjust range based on position
-      if (settings.position === 'above') {
+      if (settings.position === "above") {
         // Place decoration at start of line
         const lineStart = new vscode.Position(range.start.line, 0)
         adjustedRange = new vscode.Range(lineStart, lineStart)
-      } else if (settings.position === 'below') {
+      } else if (settings.position === "below") {
         // Place decoration at end of line
         const line = editor.document.lineAt(range.start.line)
         const lineEnd = line.range.end
@@ -77,7 +76,7 @@ export class DecorationManager {
       // For 'right', keep original range
 
       const renderOptions: vscode.DecorationInstanceRenderOptions =
-        settings.position === 'above' ? {before: {contentText: text + '\n'}} : {after: {contentText: text}}
+        settings.position === "above" ? {before: {contentText: text + "\n"}} : {after: {contentText: text}}
 
       return {range: adjustedRange, renderOptions}
     })
@@ -113,15 +112,21 @@ export class DecorationManager {
     const todayType = this.createHighlightDecorationType(settings.todayColor)
     const oldType = this.createHighlightDecorationType(settings.oldColor)
 
-    this.highlightDecorationTypes.set('today', todayType)
-    this.highlightDecorationTypes.set('old', oldType)
+    this.highlightDecorationTypes.set("today", todayType)
+    this.highlightDecorationTypes.set("old", oldType)
 
     // Apply decorations
-    const todayDecorations = decorations.get('today') || []
-    const oldDecorations = decorations.get('old') || []
+    const todayDecorations = decorations.get("today") || []
+    const oldDecorations = decorations.get("old") || []
 
-    editor.setDecorations(todayType, todayDecorations.map(d => d.range))
-    editor.setDecorations(oldType, oldDecorations.map(d => d.range))
+    editor.setDecorations(
+      todayType,
+      todayDecorations.map(d => d.range)
+    )
+    editor.setDecorations(
+      oldType,
+      oldDecorations.map(d => d.range)
+    )
   }
 
   clearHighlightDecorations(editor: vscode.TextEditor): void {
@@ -142,17 +147,17 @@ export class DecorationManager {
 
     // Hide the original channel ID by making it transparent
     const dimType = vscode.window.createTextEditorDecorationType({
-      color: 'transparent',
-      letterSpacing: '-100em' // Collapse the space taken by the channel ID
+      color: "transparent",
+      letterSpacing: "-100em" // Collapse the space taken by the channel ID
     })
 
     // Show channel name in place of the ID using 'before' decoration
     const nameType = vscode.window.createTextEditorDecorationType({
       before: {
-        contentText: '',
-        color: 'inherit',
-        fontWeight: 'normal',
-        textDecoration: 'none'
+        contentText: "",
+        color: "inherit",
+        fontWeight: "normal",
+        textDecoration: "none"
       }
     })
 
