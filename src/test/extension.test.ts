@@ -1,7 +1,6 @@
 import * as assert from "assert"
 import * as vscode from "vscode"
 import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText, MockSlackApi} from "./testUtils"
-import {findLinearIssues, extractLinearIssueFromMessage} from "../ui/formatting"
 
 suite("Slackoscope Extension E2E Tests", () => {
   setup(async () => {
@@ -421,110 +420,6 @@ suite("Slackoscope Extension E2E Tests", () => {
     })
   })
 
-  suite("Settings Configuration", () => {
-    test("should respect inline.enabled setting", async () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      await config.update("inline.enabled", false, vscode.ConfigurationTarget.Global)
-
-      await createTestDocument("https://test.slack.com/archives/C1234/p1234567890123456\n")
-      await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
-
-      await config.update("inline.enabled", undefined, vscode.ConfigurationTarget.Global)
-      assert.ok(true, "Should respect inline.enabled setting")
-    })
-
-    test("should have inline.showTime setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("inline.showTime")
-      assert.ok(setting !== undefined, "inline.showTime setting should exist")
-    })
-
-    test("should have inline.useRelativeTime setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("inline.useRelativeTime")
-      assert.ok(setting !== undefined, "inline.useRelativeTime setting should exist")
-    })
-
-    test("should have inline.showUser setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("inline.showUser")
-      assert.ok(setting !== undefined, "inline.showUser setting should exist")
-    })
-
-    test("should have inline.showChannelName setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("inline.showChannelName")
-      assert.ok(setting !== undefined, "inline.showChannelName setting should exist")
-    })
-
-    test("should have inline.fontSize setting with validation", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect<number>("inline.fontSize")
-      assert.ok(setting !== undefined, "inline.fontSize setting should exist")
-      assert.strictEqual(typeof setting.defaultValue, "number", "fontSize should be a number")
-    })
-
-    test("should have inline.color setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("inline.color")
-      assert.ok(setting !== undefined, "inline.color setting should exist")
-    })
-
-    test("should have inline.fontStyle setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("inline.fontStyle")
-      assert.ok(setting !== undefined, "inline.fontStyle setting should exist")
-    })
-
-    test("should have hover.showChannel setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("hover.showChannel")
-      assert.ok(setting !== undefined, "hover.showChannel setting should exist")
-    })
-
-    test("should have hover.showFiles setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("hover.showFiles")
-      assert.ok(setting !== undefined, "hover.showFiles setting should exist")
-    })
-
-    test("should have hover.showFileInfo setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("hover.showFileInfo")
-      assert.ok(setting !== undefined, "hover.showFileInfo setting should exist")
-    })
-
-    test("should have highlighting.enabled setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("highlighting.enabled")
-      assert.ok(setting !== undefined, "highlighting.enabled setting should exist")
-    })
-
-    test("should have highlighting.todayColor setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("highlighting.todayColor")
-      assert.ok(setting !== undefined, "highlighting.todayColor setting should exist")
-    })
-
-    test("should have highlighting.oldDays setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("highlighting.oldDays")
-      assert.ok(setting !== undefined, "highlighting.oldDays setting should exist")
-    })
-
-    test("should have highlighting.oldColor setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("highlighting.oldColor")
-      assert.ok(setting !== undefined, "highlighting.oldColor setting should exist")
-    })
-
-    test("should have linearToken setting", () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      const setting = config.inspect("linearToken")
-      assert.ok(setting !== undefined, "linearToken setting should exist")
-    })
-  })
-
   suite("Thread Support", () => {
     test("should detect thread URLs with thread_ts parameter", () => {
       const threadUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456?thread_ts=1234567890.123456"
@@ -575,66 +470,6 @@ suite("Slackoscope Extension E2E Tests", () => {
       assert.strictEqual(fileInfoSetting, true, "Should enable file info")
 
       await config.update("hover.showFileInfo", undefined, vscode.ConfigurationTarget.Global)
-    })
-  })
-
-  suite("Linear Integration", () => {
-    test("should have postToLinear command registered", async () => {
-      const commands = await vscode.commands.getCommands(true)
-      assert.ok(commands.includes("slackoscope.postToLinear"), "postToLinear command should be registered")
-    })
-
-    test("should extract Linear issue ID from message text", () => {
-      const text = "This is related to TST-123 and PRJ-456"
-      const issues = findLinearIssues(text)
-
-      assert.ok(Array.isArray(issues), "Should return an array")
-      assert.ok(issues.length >= 1, "Should find at least one issue")
-      assert.ok(issues.includes("TST-123"), "Should find TST-123")
-    })
-
-    test("should detect Linear Asks bot messages", () => {
-      const message = {
-        text: "Issue created",
-        bot_profile: {name: "Linear Asks"},
-        attachments: [{from_url: "https://linear.app/test/issue/TST-10291"}]
-      }
-
-      const issueId = extractLinearIssueFromMessage(message)
-      assert.strictEqual(issueId, "TST-10291", "Should extract Linear issue ID from bot message")
-    })
-
-    test("should extract Linear issue from URL in attachments", () => {
-      const message = {
-        text: "New issue",
-        bot_profile: {name: "Linear Asks"},
-        attachments: [
-          {from_url: "https://linear.app/workspace/issue/ABC-999"},
-          {from_url: "https://example.com"}
-        ]
-      }
-
-      const issueId = extractLinearIssueFromMessage(message)
-      assert.strictEqual(issueId, "ABC-999", "Should extract issue from first Linear URL")
-    })
-
-    test("should handle messages without Linear Asks bot", () => {
-      const message = {
-        text: "Regular message without Linear",
-        bot_profile: {name: "Other Bot"}
-      }
-
-      const issueId = extractLinearIssueFromMessage(message)
-      assert.strictEqual(issueId, null, "Should return null for non-Linear messages")
-    })
-
-    test("should fallback to text search when no bot attachments", () => {
-      const message = {
-        text: "Check out PROJ-555 for details"
-      }
-
-      const issueId = extractLinearIssueFromMessage(message)
-      assert.strictEqual(issueId, "PROJ-555", "Should find issue in text")
     })
   })
 

@@ -3,9 +3,6 @@ import type {SlackMessage, SlackUser, SlackChannel, ParsedSlackUrl, SlackFile} f
 import type {LinearIssue} from "../types/linear"
 import {
   TEST_MESSAGES,
-  TEST_USERS,
-  TEST_CHANNELS,
-  TEST_LINEAR_ISSUES,
   TEST_THREAD_REPLIES,
   getTestMessage,
   getTestUser,
