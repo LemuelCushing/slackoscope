@@ -1,6 +1,7 @@
 import * as assert from "assert"
 import * as vscode from "vscode"
-import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
+import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText, MockSlackApi} from "./testUtils"
+import {findLinearIssues, extractLinearIssueFromMessage} from "../ui/formatting"
 
 suite("Slackoscope Extension E2E Tests", () => {
   setup(async () => {
@@ -55,28 +56,21 @@ suite("Slackoscope Extension E2E Tests", () => {
 
   suite("Toggle Inline Message Command", () => {
     test("should execute without error when no file is open", async () => {
-      // Close all editors
       await vscode.commands.executeCommand("workbench.action.closeAllEditors")
-
-      // This should not throw an error
       await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
       assert.ok(true, "Command should execute without error")
     })
 
     test("should execute with an open document", async () => {
-      // Create a new untitled document
       const doc = await vscode.workspace.openTextDocument({
         content: "// Test file\n// https://test.slack.com/archives/C1234/p1234567890123456\n",
         language: "javascript"
       })
 
       await vscode.window.showTextDocument(doc)
-
-      // Execute the command
       await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
       assert.ok(true, "Command should execute with open document")
 
-      // Clean up
       await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
     })
 
@@ -88,35 +82,31 @@ suite("Slackoscope Extension E2E Tests", () => {
 
       await vscode.window.showTextDocument(doc)
 
-      // Toggle on
       await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
-
-      // Toggle off
       await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
 
       assert.ok(true, "Should toggle on and off without errors")
 
-      // Clean up
       await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
     })
 
     test("should handle multiple Slack URLs in document", async () => {
-      const url1 = "https://workspace1.slack.com/archives/C1111/p1111111111111111"
-      const url2 = "https://workspace2.slack.com/archives/C2222/p2222222222222222"
-      const url3 = "https://workspace3.slack.com/archives/C3333/p3333333333333333"
+      const urls = [
+        "https://workspace1.slack.com/archives/C1111/p1111111111111111",
+        "https://workspace2.slack.com/archives/C2222/p2222222222222222",
+        "https://workspace3.slack.com/archives/C3333/p3333333333333333"
+      ]
 
       const doc = await vscode.workspace.openTextDocument({
-        content: `// First: ${url1}\n// Second: ${url2}\n// Third: ${url3}\n`,
+        content: urls.map((url, i) => `// ${i + 1}: ${url}\n`).join(""),
         language: "javascript"
       })
 
       await vscode.window.showTextDocument(doc)
-
       await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
 
       assert.ok(true, "Should handle multiple URLs")
 
-      // Clean up
       await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
     })
 
@@ -129,12 +119,10 @@ suite("Slackoscope Extension E2E Tests", () => {
       })
 
       await vscode.window.showTextDocument(doc)
-
       await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
 
       assert.ok(true, "Should handle repeated URLs")
 
-      // Clean up
       await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
     })
 
@@ -148,22 +136,20 @@ suite("Slackoscope Extension E2E Tests", () => {
       })
 
       await vscode.window.showTextDocument(doc)
-
       await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
 
       assert.ok(true, "Should handle mixed URLs")
 
-      // Clean up
       await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
     })
 
     test("should work across different file types", async () => {
       const url = "https://test.slack.com/archives/C1234/p1234567890123456"
-      const languages = ["javascript", "typescript", "python", "go", "rust"]
+      const languages = ["javascript", "typescript", "python", "go", "rust", "ruby", "shellscript"]
 
       for (const lang of languages) {
         const doc = await vscode.workspace.openTextDocument({
-          content: `// ${url}\n`,
+          content: `${url}\n`,
           language: lang
         })
 
@@ -198,7 +184,6 @@ suite("Slackoscope Extension E2E Tests", () => {
 
   suite("Hover Provider", () => {
     test("should be registered for all languages", async () => {
-      // Create a test document with a Slack URL
       const slackUrl = "https://test-workspace.slack.com/archives/C1234ABCD/p1234567890123456"
       const doc = await vscode.workspace.openTextDocument({
         content: `// Comment with ${slackUrl}\n`,
@@ -207,21 +192,16 @@ suite("Slackoscope Extension E2E Tests", () => {
 
       await vscode.window.showTextDocument(doc)
 
-      // Find the position of the Slack URL
-      const urlPosition = doc.positionAt(doc.getText().indexOf(slackUrl) + 10) // Middle of URL
+      const urlPosition = doc.positionAt(doc.getText().indexOf(slackUrl) + 10)
 
-      // Request hover information
       const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
         "vscode.executeHoverProvider",
         doc.uri,
         urlPosition
       )
 
-      // Note: Without a valid Slack token and API response, we can't test the actual content
-      // But we can verify the hover provider is registered
       assert.ok(Array.isArray(hovers), "Should return hover information")
 
-      // Clean up
       await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
     })
 
@@ -229,20 +209,13 @@ suite("Slackoscope Extension E2E Tests", () => {
       const slackUrl = "https://test-workspace.slack.com/archives/C1234ABCD/p1234567890123456"
       const {doc} = await createTestDocument(`// ${slackUrl}\n`)
 
-      // Find position in the middle of the URL
       const urlPosition = doc.positionAt(doc.getText().indexOf(slackUrl) + 20)
 
-      // Get hover content
       const hovers = await getHoverContent(doc, urlPosition)
       const hoverText = extractHoverText(hovers)
 
-      // Verify hover contains user information (instead of "Slack Message" label)
       assert.ok(hoverText.includes("@Test User"), "Hover should contain user information")
-
-      // Verify hover contains some message content (even if it's an error message without token)
       assert.ok(hoverText.length > 20, "Hover should contain message content")
-
-      // Verify hover contains the insert command link
       assert.ok(
         hoverText.includes("Insert Commented Message") || hoverText.includes("insertCommentedMessage"),
         "Hover should contain insert command link"
@@ -257,7 +230,6 @@ suite("Slackoscope Extension E2E Tests", () => {
       const hovers = await getHoverContent(doc, urlPosition)
       const hoverText = extractHoverText(hovers)
 
-      // Should not contain Slackoscope hover for non-Slack URLs
       assert.ok(!hoverText.includes("Slack Message"), "Should not show Slack hover for non-Slack URLs")
     })
 
@@ -293,7 +265,6 @@ suite("Slackoscope Extension E2E Tests", () => {
 
   suite("Comment Insertion", () => {
     test("should handle insertCommentedMessage command registration", async () => {
-      // This command is marked with enablement: false, so it's only callable programmatically
       const commands = await vscode.commands.getCommands(true)
       assert.ok(
         commands.includes("slackoscope.insertCommentedMessage"),
@@ -305,29 +276,19 @@ suite("Slackoscope Extension E2E Tests", () => {
       const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
       const {editor} = await createTestDocument(`// ${slackUrl}\n`)
 
-      // Execute insert command
       await vscode.commands.executeCommand("slackoscope.insertCommentedMessage", {
         url: slackUrl,
         lineNumber: 0
       })
 
-      // Wait a bit for the command to complete
       await new Promise(resolve => setTimeout(resolve, 200))
 
-      // Get the updated document from the editor
       const updatedDoc = editor.document
-
-      // Document should have more lines now (or at least same if error message is single line)
-      // The command inserts the message content, which should add lines
       const insertedText = updatedDoc.getText()
 
-      // Verify it contains comment markers (// for JavaScript)
       assert.ok(insertedText.includes("//"), "Should contain comment markers")
-
-      // Verify the content has been modified
       assert.ok(insertedText.length > slackUrl.length + 10, "Should have inserted content")
 
-      // Verify we have multiple lines (original + inserted)
       const lines = insertedText.split("\n")
       assert.ok(lines.length >= 2, "Should have at least 2 lines (URL + comment)")
     })
@@ -344,7 +305,6 @@ suite("Slackoscope Extension E2E Tests", () => {
       const insertedText = editor.document.getText()
       const lines = insertedText.split("\n")
 
-      // Each inserted line should have a comment marker
       const commentLines = lines.filter(line => line.trim().startsWith("//"))
       assert.ok(commentLines.length >= 1, "Should have at least one commented line")
     })
@@ -368,9 +328,6 @@ suite("Slackoscope Extension E2E Tests", () => {
 
         const insertedText = doc.getText()
 
-        // Note: VS Code's $LINE_COMMENT snippet variable should handle this
-        // We can't directly verify the comment syntax without executing the snippet,
-        // but we can verify the command completes successfully
         assert.ok(insertedText.length > slackUrl.length, `Should insert content for ${language}`)
       }
     })
@@ -440,7 +397,9 @@ suite("Slackoscope Extension E2E Tests", () => {
       {lang: "python", comment: "#"},
       {lang: "typescript", comment: "//"},
       {lang: "go", comment: "//"},
-      {lang: "rust", comment: "//"}
+      {lang: "rust", comment: "//"},
+      {lang: "ruby", comment: "#"},
+      {lang: "shellscript", comment: "#"}
     ]
 
     testLanguages.forEach(({lang}) => {
@@ -453,14 +412,229 @@ suite("Slackoscope Extension E2E Tests", () => {
 
         await vscode.window.showTextDocument(doc)
 
-        // Should execute without error
         await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
 
         assert.ok(true, `Should handle ${lang} files`)
 
-        // Clean up
         await vscode.commands.executeCommand("workbench.action.closeActiveEditor")
       })
+    })
+  })
+
+  suite("Settings Configuration", () => {
+    test("should respect inline.enabled setting", async () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      await config.update("inline.enabled", false, vscode.ConfigurationTarget.Global)
+
+      await createTestDocument("https://test.slack.com/archives/C1234/p1234567890123456\n")
+      await vscode.commands.executeCommand("slackoscope.toggleInlineMessage")
+
+      await config.update("inline.enabled", undefined, vscode.ConfigurationTarget.Global)
+      assert.ok(true, "Should respect inline.enabled setting")
+    })
+
+    test("should have inline.showTime setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("inline.showTime")
+      assert.ok(setting !== undefined, "inline.showTime setting should exist")
+    })
+
+    test("should have inline.useRelativeTime setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("inline.useRelativeTime")
+      assert.ok(setting !== undefined, "inline.useRelativeTime setting should exist")
+    })
+
+    test("should have inline.showUser setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("inline.showUser")
+      assert.ok(setting !== undefined, "inline.showUser setting should exist")
+    })
+
+    test("should have inline.showChannelName setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("inline.showChannelName")
+      assert.ok(setting !== undefined, "inline.showChannelName setting should exist")
+    })
+
+    test("should have inline.fontSize setting with validation", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect<number>("inline.fontSize")
+      assert.ok(setting !== undefined, "inline.fontSize setting should exist")
+      assert.strictEqual(typeof setting.defaultValue, "number", "fontSize should be a number")
+    })
+
+    test("should have inline.color setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("inline.color")
+      assert.ok(setting !== undefined, "inline.color setting should exist")
+    })
+
+    test("should have inline.fontStyle setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("inline.fontStyle")
+      assert.ok(setting !== undefined, "inline.fontStyle setting should exist")
+    })
+
+    test("should have hover.showChannel setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("hover.showChannel")
+      assert.ok(setting !== undefined, "hover.showChannel setting should exist")
+    })
+
+    test("should have hover.showFiles setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("hover.showFiles")
+      assert.ok(setting !== undefined, "hover.showFiles setting should exist")
+    })
+
+    test("should have hover.showFileInfo setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("hover.showFileInfo")
+      assert.ok(setting !== undefined, "hover.showFileInfo setting should exist")
+    })
+
+    test("should have highlighting.enabled setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("highlighting.enabled")
+      assert.ok(setting !== undefined, "highlighting.enabled setting should exist")
+    })
+
+    test("should have highlighting.todayColor setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("highlighting.todayColor")
+      assert.ok(setting !== undefined, "highlighting.todayColor setting should exist")
+    })
+
+    test("should have highlighting.oldDays setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("highlighting.oldDays")
+      assert.ok(setting !== undefined, "highlighting.oldDays setting should exist")
+    })
+
+    test("should have highlighting.oldColor setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("highlighting.oldColor")
+      assert.ok(setting !== undefined, "highlighting.oldColor setting should exist")
+    })
+
+    test("should have linearToken setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const setting = config.inspect("linearToken")
+      assert.ok(setting !== undefined, "linearToken setting should exist")
+    })
+  })
+
+  suite("Thread Support", () => {
+    test("should detect thread URLs with thread_ts parameter", () => {
+      const threadUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456?thread_ts=1234567890.123456"
+      const mockApi = new MockSlackApi()
+      const parsed = mockApi.parseSlackUrl(threadUrl)
+
+      assert.ok(parsed, "Should parse thread URL")
+      assert.ok(parsed?.threadTs, "Should extract thread_ts")
+      assert.strictEqual(parsed?.threadTs, "1234567890.123456", "Should have correct thread timestamp")
+    })
+
+    test("should handle thread parent messages", async () => {
+      const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
+      const {doc} = await createTestDocument(`${slackUrl}\n`)
+
+      const urlPosition = doc.positionAt(10)
+      const hovers = await getHoverContent(doc, urlPosition)
+      const hoverText = extractHoverText(hovers)
+
+      assert.ok(hoverText.length > 0, "Should show hover for thread parent")
+    })
+  })
+
+  suite("File Attachments", () => {
+    test("should display file information when hover.showFiles is enabled", async () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      await config.update("hover.showFiles", true, vscode.ConfigurationTarget.Global)
+
+      const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
+      const {doc} = await createTestDocument(`${slackUrl}\n`)
+
+      const urlPosition = doc.positionAt(10)
+      await getHoverContent(doc, urlPosition)
+
+      await config.update("hover.showFiles", undefined, vscode.ConfigurationTarget.Global)
+      assert.ok(true, "Should handle file display setting")
+    })
+
+    test("should toggle file info display with hover.showFileInfo setting", async () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+
+      await config.update("hover.showFileInfo", false, vscode.ConfigurationTarget.Global)
+      let fileInfoSetting = config.get("hover.showFileInfo")
+      assert.strictEqual(fileInfoSetting, false, "Should disable file info")
+
+      await config.update("hover.showFileInfo", true, vscode.ConfigurationTarget.Global)
+      fileInfoSetting = config.get("hover.showFileInfo")
+      assert.strictEqual(fileInfoSetting, true, "Should enable file info")
+
+      await config.update("hover.showFileInfo", undefined, vscode.ConfigurationTarget.Global)
+    })
+  })
+
+  suite("Linear Integration", () => {
+    test("should have postToLinear command registered", async () => {
+      const commands = await vscode.commands.getCommands(true)
+      assert.ok(commands.includes("slackoscope.postToLinear"), "postToLinear command should be registered")
+    })
+
+    test("should extract Linear issue ID from message text", () => {
+      const text = "This is related to TST-123 and PRJ-456"
+      const issues = findLinearIssues(text)
+
+      assert.ok(Array.isArray(issues), "Should return an array")
+      assert.ok(issues.length >= 1, "Should find at least one issue")
+      assert.ok(issues.includes("TST-123"), "Should find TST-123")
+    })
+
+    test("should detect Linear Asks bot messages", () => {
+      const message = {
+        text: "Issue created",
+        bot_profile: {name: "Linear Asks"},
+        attachments: [{from_url: "https://linear.app/test/issue/TST-10291"}]
+      }
+
+      const issueId = extractLinearIssueFromMessage(message)
+      assert.strictEqual(issueId, "TST-10291", "Should extract Linear issue ID from bot message")
+    })
+
+    test("should extract Linear issue from URL in attachments", () => {
+      const message = {
+        text: "New issue",
+        bot_profile: {name: "Linear Asks"},
+        attachments: [
+          {from_url: "https://linear.app/workspace/issue/ABC-999"},
+          {from_url: "https://example.com"}
+        ]
+      }
+
+      const issueId = extractLinearIssueFromMessage(message)
+      assert.strictEqual(issueId, "ABC-999", "Should extract issue from first Linear URL")
+    })
+
+    test("should handle messages without Linear Asks bot", () => {
+      const message = {
+        text: "Regular message without Linear",
+        bot_profile: {name: "Other Bot"}
+      }
+
+      const issueId = extractLinearIssueFromMessage(message)
+      assert.strictEqual(issueId, null, "Should return null for non-Linear messages")
+    })
+
+    test("should fallback to text search when no bot attachments", () => {
+      const message = {
+        text: "Check out PROJ-555 for details"
+      }
+
+      const issueId = extractLinearIssueFromMessage(message)
+      assert.strictEqual(issueId, "PROJ-555", "Should find issue in text")
     })
   })
 
