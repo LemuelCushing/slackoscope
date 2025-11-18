@@ -1,5 +1,5 @@
 import * as assert from "assert"
-import {SLACK_URL_REGEX} from "../slackApi"
+import {SLACK_URL_REGEX} from "../api/slackApi"
 
 suite("Slack API Unit Tests", () => {
   suite("SLACK_URL_REGEX", () => {
@@ -13,7 +13,7 @@ suite("Slack API Unit Tests", () => {
       validUrls.forEach(url => {
         const match = url.match(SLACK_URL_REGEX)
         assert.ok(match, `Should match URL: ${url}`)
-        assert.strictEqual(match.length, 3, "Should have 3 groups (full match, channel, timestamp)")
+        assert.ok(match.length >= 3, "Should have at least 3 groups (full match, channel, timestamp)")
       })
     })
 

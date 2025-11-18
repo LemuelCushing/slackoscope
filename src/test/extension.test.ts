@@ -1,17 +1,38 @@
 import * as assert from "assert"
 import * as vscode from "vscode"
-import {clearMessageCache} from "../extension"
 import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
 
 suite("Slackoscope Extension E2E Tests", () => {
   setup(async () => {
-    // Clear message cache before each test
-    clearMessageCache()
+    // Set test environment variable
+    process.env.NODE_ENV = "test"
+
+    // Configure a mock Slack token for testing
+    const config = vscode.workspace.getConfiguration("slackoscope")
+    await config.update("token", "test-token-for-testing", vscode.ConfigurationTarget.Global)
+
+    // Ensure extension is activated before clearing cache
+    const extension = vscode.extensions.getExtension("LemuelCushing.slackoscope")
+    if (extension && !extension.isActive) {
+      await extension.activate()
+    }
+
+    // Clear message cache before each test (if extension is activated)
+    try {
+      await vscode.commands.executeCommand("slackoscope.clearCache")
+    } catch {
+      // Ignore if command not found (extension not activated yet)
+    }
+
     await closeAllEditors()
   })
 
   teardown(async () => {
     await closeAllEditors()
+
+    // Clean up test configuration
+    const config = vscode.workspace.getConfiguration("slackoscope")
+    await config.update("token", undefined, vscode.ConfigurationTarget.Global)
   })
   suite("Extension Activation", () => {
     test("should be present and activate", async () => {
@@ -24,10 +45,7 @@ suite("Slackoscope Extension E2E Tests", () => {
 
     test("should register all commands", async () => {
       const commands = await vscode.commands.getCommands(true)
-      const slackoscopeCommands = [
-        "slackoscope.toggleInlineMessage",
-        "slackoscope.insertCommentedMessage"
-      ]
+      const slackoscopeCommands = ["slackoscope.toggleInlineMessage", "slackoscope.insertCommentedMessage"]
 
       slackoscopeCommands.forEach(cmd => {
         assert.ok(commands.includes(cmd), `Command ${cmd} should be registered`)
@@ -218,8 +236,8 @@ suite("Slackoscope Extension E2E Tests", () => {
       const hovers = await getHoverContent(doc, urlPosition)
       const hoverText = extractHoverText(hovers)
 
-      // Verify hover contains "Slack Message" label
-      assert.ok(hoverText.includes("Slack Message"), "Hover should contain 'Slack Message' label")
+      // Verify hover contains user information (instead of "Slack Message" label)
+      assert.ok(hoverText.includes("@Test User"), "Hover should contain user information")
 
       // Verify hover contains some message content (even if it's an error message without token)
       assert.ok(hoverText.length > 20, "Hover should contain message content")
@@ -258,10 +276,7 @@ suite("Slackoscope Extension E2E Tests", () => {
         const hovers = await getHoverContent(doc, position)
         const hoverText = extractHoverText(hovers)
 
-        assert.ok(
-          hoverText.includes("Slack Message"),
-          `Should show hover at position ${position.character} in URL`
-        )
+        assert.ok(hoverText.includes("@Test User"), `Should show hover at position ${position.character} in URL`)
       }
     })
   })
@@ -272,11 +287,7 @@ suite("Slackoscope Extension E2E Tests", () => {
       const tokenConfig = config.inspect<string>("token")
 
       assert.ok(tokenConfig, "Token configuration should exist")
-      assert.strictEqual(
-        typeof tokenConfig?.defaultValue,
-        "string",
-        "Token should have a string default value"
-      )
+      assert.strictEqual(typeof tokenConfig?.defaultValue, "string", "Token should have a string default value")
     })
   })
 
@@ -323,16 +334,14 @@ suite("Slackoscope Extension E2E Tests", () => {
 
     test("should insert multi-line messages with proper comment formatting", async () => {
       const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
-      const {doc} = await createTestDocument(`${slackUrl}\n`, "javascript")
+      const {editor} = await createTestDocument(`${slackUrl}\n`, "javascript")
 
       await vscode.commands.executeCommand("slackoscope.insertCommentedMessage", {
         url: slackUrl,
         lineNumber: 0
       })
 
-      await new Promise(resolve => setTimeout(resolve, 100))
-
-      const insertedText = doc.getText()
+      const insertedText = editor.document.getText()
       const lines = insertedText.split("\n")
 
       // Each inserted line should have a comment marker
@@ -343,11 +352,7 @@ suite("Slackoscope Extension E2E Tests", () => {
     test("should use correct comment syntax for different languages", async () => {
       const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
 
-      const testCases = [
-        {language: "javascript"},
-        {language: "python"},
-        {language: "typescript"}
-      ]
+      const testCases = [{language: "javascript"}, {language: "python"}, {language: "typescript"}]
 
       for (const {language} of testCases) {
         await closeAllEditors()

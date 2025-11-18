@@ -31,6 +31,10 @@
       {
         "command": "slackoscope.clearCache",
         "title": "Slackoscope: Clear Message Cache"
+      },
+      {
+        "command": "slackoscope.postToLinear",
+        "title": "Slackoscope: Post Current File to Linear Issue"
       }
     ],
     "configuration": {
@@ -39,7 +43,91 @@
         "slackoscope.token": {
           "type": "string",
           "default": "",
-          "description": "Slack API Token"
+          "markdownDescription": "Slack API token. Can be a plain text token or a 1Password reference (e.g., `op://vault/item/field`). See [1Password documentation](https://developer.1password.com/docs/vscode/) for details."
+        },
+        "slackoscope.linearToken": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Linear API token (optional). Can be a plain text token or a 1Password reference (e.g., `op://vault/item/field`). See [1Password documentation](https://developer.1password.com/docs/vscode/) for details."
+        },
+        "slackoscope.inline.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline message preview next to Slack URLs"
+        },
+        "slackoscope.inline.position": {
+          "type": "string",
+          "enum": [
+            "right",
+            "above",
+            "below"
+          ],
+          "default": "right",
+          "description": "Where to display inline preview"
+        },
+        "slackoscope.inline.showTime": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show timestamp in inline preview"
+        },
+        "slackoscope.inline.useRelativeTime": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show relative time (e.g., '5 minutes ago') instead of absolute time"
+        },
+        "slackoscope.inline.showUser": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show user name in inline preview"
+        },
+        "slackoscope.inline.fontSize": {
+          "type": "number",
+          "default": 12,
+          "description": "Font size for inline preview (in pixels)"
+        },
+        "slackoscope.inline.color": {
+          "type": "string",
+          "default": "rgba(128, 128, 128, 0.6)",
+          "description": "Color for inline preview text (CSS color)"
+        },
+        "slackoscope.inline.fontStyle": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "italic"
+          ],
+          "default": "italic",
+          "description": "Font style for inline preview"
+        },
+        "slackoscope.hover.showChannel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show channel name in hover tooltip"
+        },
+        "slackoscope.hover.showFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show attached files in hover tooltip"
+        },
+        "slackoscope.highlighting.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Highlight Slack URLs by message age"
+        },
+        "slackoscope.highlighting.todayColor": {
+          "type": "string",
+          "default": "rgba(100, 200, 100, 0.1)",
+          "description": "Background color for messages from today"
+        },
+        "slackoscope.highlighting.oldDays": {
+          "type": "number",
+          "default": 7,
+          "description": "Number of days before a message is considered old"
+        },
+        "slackoscope.highlighting.oldColor": {
+          "type": "string",
+          "default": "rgba(200, 100, 100, 0.1)",
+          "description": "Background color for old messages"
         }
       }
     }
@@ -78,5 +166,9 @@
     "slack",
     "vscode",
     "extension"
-  ]
+  ],
+  "mocha": {
+    "ui": "tdd",
+    "color": true
+  }
 }
