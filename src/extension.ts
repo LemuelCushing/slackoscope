@@ -23,28 +23,33 @@ export async function activate(context: vscode.ExtensionContext) {
   settingsManager = new SettingsManager()
   cacheManager = new CacheManager()
 
-  // Initialize 1Password API
+  // Initialize 1Password API (skip in test mode to avoid auth prompts)
+  const isTestMode = process.env.NODE_ENV === 'test'
   const onePasswordApi = new OnePasswordApi()
-  const has1Password = await onePasswordApi.isAvailable()
+  let has1Password = false
 
-  if (!has1Password) {
-    console.warn('1Password CLI not available, using plain text tokens')
+  if (!isTestMode) {
+    has1Password = await onePasswordApi.isAvailable()
+
+    if (!has1Password) {
+      console.warn('1Password CLI not available, using plain text tokens')
+    }
   }
 
-  // Load tokens (with 1Password if available)
+  // Load tokens (with 1Password if available and not in test mode)
   let slackToken = settingsManager.slackToken
   let linearToken = settingsManager.linearToken
 
-  try {
-    if (has1Password) {
+  if (!isTestMode && has1Password) {
+    try {
       slackToken = await onePasswordApi.readSecret(slackToken)
       if (linearToken) {
         linearToken = await onePasswordApi.readSecret(linearToken)
       }
+    } catch (error) {
+      console.error('Failed to load tokens from 1Password:', error)
+      vscode.window.showWarningMessage('Slackoscope: Failed to load tokens from 1Password, using plain text values')
     }
-  } catch (error) {
-    console.error('Failed to load tokens from 1Password:', error)
-    vscode.window.showWarningMessage('Slackoscope: Failed to load tokens from 1Password, using plain text values')
   }
 
   // Initialize Slack API (will work even without token, but show warning)

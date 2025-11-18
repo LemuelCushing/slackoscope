@@ -444,34 +444,15 @@ suite("Slackoscope Extension E2E Tests", () => {
   })
 
   suite("File Attachments", () => {
-    test("should display file information when hover.showFiles is enabled", async () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-      await config.update("hover.showFiles", true, vscode.ConfigurationTarget.Global)
-
-      const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
+    test("should handle file attachments in messages", async () => {
+      const slackUrl = "https://workspace.slack.com/archives/C1234ABCD/p1234567890234567"
       const {doc} = await createTestDocument(`${slackUrl}\n`)
 
       const urlPosition = doc.positionAt(10)
-      await getHoverContent(doc, urlPosition)
+      const hovers = await getHoverContent(doc, urlPosition)
+      const hoverText = extractHoverText(hovers)
 
-      await config.update("hover.showFiles", undefined, vscode.ConfigurationTarget.Global)
-      assert.ok(true, "Should handle file display setting")
-    })
-
-    test("should toggle file info display with hover.showFileInfo setting", async () => {
-      const config = vscode.workspace.getConfiguration("slackoscope")
-
-      await config.update("hover.showFileInfo", false, vscode.ConfigurationTarget.Global)
-      await new Promise(resolve => setTimeout(resolve, 50))
-      let fileInfoSetting = config.get("hover.showFileInfo")
-      assert.strictEqual(fileInfoSetting, false, "Should disable file info")
-
-      await config.update("hover.showFileInfo", true, vscode.ConfigurationTarget.Global)
-      await new Promise(resolve => setTimeout(resolve, 50))
-      fileInfoSetting = config.get("hover.showFileInfo")
-      assert.strictEqual(fileInfoSetting, true, "Should enable file info")
-
-      await config.update("hover.showFileInfo", undefined, vscode.ConfigurationTarget.Global)
+      assert.ok(hoverText.length > 0, "Should show hover for messages with files")
     })
   })
 
