@@ -35,18 +35,11 @@ export async function activate(context: vscode.ExtensionContext) {
   let slackToken = settingsManager.slackToken
   let linearToken = settingsManager.linearToken
 
-  console.log('Initial tokens loaded:', {
-    slackToken: slackToken ? `${slackToken.substring(0, 10)}...` : 'not set',
-    linearToken: linearToken ? `${linearToken.substring(0, 10)}...` : 'not set',
-    has1Password
-  })
-
   try {
     if (has1Password) {
       slackToken = await onePasswordApi.readSecret(slackToken)
       if (linearToken) {
         linearToken = await onePasswordApi.readSecret(linearToken)
-        console.log('Linear token after 1Password:', linearToken ? `${linearToken.substring(0, 10)}...` : 'null')
       }
     }
   } catch (error) {
@@ -67,14 +60,10 @@ export async function activate(context: vscode.ExtensionContext) {
   // Initialize Linear API (optional)
   if (linearToken) {
     try {
-      console.log('Initializing Linear API with token:', linearToken.substring(0, 10) + '...')
       linearApi = new LinearApi(linearToken)
-      console.log('Linear API initialized successfully')
     } catch (error) {
       console.error('Linear API initialization failed:', error)
     }
-  } else {
-    console.log('No Linear token configured - Linear integration disabled')
   }
 
   // Register providers
