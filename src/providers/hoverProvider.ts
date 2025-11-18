@@ -89,6 +89,7 @@ export class HoverProvider implements vscode.HoverProvider {
       markdown.appendMarkdown(`\n📎 **Files**:\n\n`)
 
       for (const file of message.files) {
+        console.log('Rendering file - FULL OBJECT:', file)
         console.log('Rendering file:', {name: file.name, url: file.url, mimetype: file.mimetype, size: file.size})
 
         // Image preview
@@ -194,6 +195,7 @@ export class HoverProvider implements vscode.HoverProvider {
       markdown.appendMarkdown(`\n📎 **Files**:\n\n`)
 
       for (const file of targetMessage.files) {
+        console.log('[Thread] Rendering file - FULL OBJECT:', file)
         console.log('[Thread] Rendering file:', {name: file.name, url: file.url, mimetype: file.mimetype, size: file.size})
 
         if (file.mimetype.startsWith('image/') && file.thumb) {
