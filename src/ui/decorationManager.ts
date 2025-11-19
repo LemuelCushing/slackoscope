@@ -9,10 +9,8 @@ export interface DecorationData {
 export class DecorationManager {
   private inlineDecorationType: vscode.TextEditorDecorationType | null = null
   private highlightDecorationTypes: Map<string, vscode.TextEditorDecorationType> = new Map()
-  private channelNameDecorationTypes: {
-    dim: vscode.TextEditorDecorationType
-    name: vscode.TextEditorDecorationType
-  } | null = null
+  private channelNameDecorationType: vscode.TextEditorDecorationType | null = null
+  private timestampDecorationType: vscode.TextEditorDecorationType | null = null
 
   createInlineDecorationType(settings: InlineSettings): vscode.TextEditorDecorationType {
     // Dispose existing
@@ -135,36 +133,40 @@ export class DecorationManager {
     })
   }
 
-  applyChannelNameDecorations(
+  applyChannelNameAndTimestampDecorations(
     editor: vscode.TextEditor,
-    decorations: Array<{channelIdRange: vscode.Range; channelName: string}>
+    decorations: Array<{
+      channelIdRange: vscode.Range
+      channelName: string
+      timestampRange: vscode.Range
+      formattedTimestamp: string
+    }>
   ): void {
-    // Dispose existing
-    if (this.channelNameDecorationTypes) {
-      this.channelNameDecorationTypes.dim.dispose()
-      this.channelNameDecorationTypes.name.dispose()
+    // Create or reuse decoration types
+    if (!this.channelNameDecorationType) {
+      this.channelNameDecorationType = vscode.window.createTextEditorDecorationType({
+        opacity: "0",
+        before: {
+          contentText: "",
+          color: "inherit",
+          fontWeight: "normal"
+        }
+      })
     }
 
-    // Hide the original channel ID by making it transparent
-    const dimType = vscode.window.createTextEditorDecorationType({
-      color: "transparent",
-      letterSpacing: "-100em" // Collapse the space taken by the channel ID
-    })
+    if (!this.timestampDecorationType) {
+      this.timestampDecorationType = vscode.window.createTextEditorDecorationType({
+        opacity: "0",
+        before: {
+          contentText: "",
+          color: "inherit",
+          fontWeight: "normal"
+        }
+      })
+    }
 
-    // Show channel name in place of the ID using 'before' decoration
-    const nameType = vscode.window.createTextEditorDecorationType({
-      before: {
-        contentText: "",
-        color: "inherit",
-        fontWeight: "normal",
-        textDecoration: "none"
-      }
-    })
-
-    this.channelNameDecorationTypes = {dim: dimType, name: nameType}
-
-    const dimRanges = decorations.map(d => d.channelIdRange)
-    const nameDecorations = decorations.map(d => ({
+    // Apply channel name decorations
+    const channelDecorations = decorations.map(d => ({
       range: d.channelIdRange,
       renderOptions: {
         before: {
@@ -173,23 +175,36 @@ export class DecorationManager {
       }
     }))
 
-    editor.setDecorations(dimType, dimRanges)
-    editor.setDecorations(nameType, nameDecorations)
+    // Apply timestamp decorations
+    const timestampDecorations = decorations.map(d => ({
+      range: d.timestampRange,
+      renderOptions: {
+        before: {
+          contentText: d.formattedTimestamp
+        }
+      }
+    }))
+
+    editor.setDecorations(this.channelNameDecorationType, channelDecorations)
+    editor.setDecorations(this.timestampDecorationType, timestampDecorations)
   }
 
   clearChannelNameDecorations(editor: vscode.TextEditor): void {
-    if (this.channelNameDecorationTypes) {
-      editor.setDecorations(this.channelNameDecorationTypes.dim, [])
-      editor.setDecorations(this.channelNameDecorationTypes.name, [])
+    if (this.channelNameDecorationType) {
+      editor.setDecorations(this.channelNameDecorationType, [])
+    }
+  }
+
+  clearTimestampDecorations(editor: vscode.TextEditor): void {
+    if (this.timestampDecorationType) {
+      editor.setDecorations(this.timestampDecorationType, [])
     }
   }
 
   dispose(): void {
     this.inlineDecorationType?.dispose()
     this.highlightDecorationTypes.forEach(type => type.dispose())
-    if (this.channelNameDecorationTypes) {
-      this.channelNameDecorationTypes.dim.dispose()
-      this.channelNameDecorationTypes.name.dispose()
-    }
+    this.channelNameDecorationType?.dispose()
+    this.timestampDecorationType?.dispose()
   }
 }

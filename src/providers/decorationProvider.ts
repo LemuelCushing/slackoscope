@@ -74,7 +74,7 @@ export class DecorationProvider {
       vscode.window.visibleTextEditors.forEach(editor => {
         this.decorationManager.clearInlineDecorations(editor)
         this.decorationManager.clearHighlightDecorations(editor)
-        this.decorationManager.clearChannelNameDecorations(editor)
+        // Note: Don't clear channel name and timestamp decorations - they're independent
       })
     }
   }
@@ -106,18 +106,29 @@ export class DecorationProvider {
   }
 
   private async updateDecorations(editor: vscode.TextEditor): Promise<void> {
-    if (!this.isEnabled) {
-      this.decorationManager.clearInlineDecorations(editor)
-      this.decorationManager.clearHighlightDecorations(editor)
-      return
-    }
-
     const document = editor.document
     const text = document.getText()
     const globalRegex = new RegExp(this.slackApi.SLACK_URL_REGEX.source, 'g')
     const slackUrls = [...text.matchAll(globalRegex)]
 
     if (slackUrls.length === 0) {
+      this.decorationManager.clearInlineDecorations(editor)
+      this.decorationManager.clearHighlightDecorations(editor)
+      this.decorationManager.clearChannelNameDecorations(editor)
+      this.decorationManager.clearTimestampDecorations(editor)
+      return
+    }
+
+    // Always update channel name and timestamp decorations (independent of inline messages)
+    if (this.settingsManager.inline.showChannelName) {
+      await this.updateChannelNameAndTimestampDecorations(editor, slackUrls)
+    } else {
+      this.decorationManager.clearChannelNameDecorations(editor)
+      this.decorationManager.clearTimestampDecorations(editor)
+    }
+
+    // Only fetch messages and apply inline/highlight decorations if enabled
+    if (!this.isEnabled) {
       this.decorationManager.clearInlineDecorations(editor)
       this.decorationManager.clearHighlightDecorations(editor)
       return
@@ -205,13 +216,6 @@ export class DecorationProvider {
 
     // Apply highlight decorations
     await this.updateHighlightDecorations(editor, results)
-
-    // Apply channel name decorations if enabled
-    if (this.settingsManager.inline.showChannelName) {
-      await this.updateChannelNameDecorations(editor, slackUrls)
-    } else {
-      this.decorationManager.clearChannelNameDecorations(editor)
-    }
   }
 
   private async updateHighlightDecorations(
@@ -248,7 +252,7 @@ export class DecorationProvider {
     this.decorationManager.applyHighlightDecorations(editor, highlightDecorations, settings)
   }
 
-  private async updateChannelNameDecorations(
+  private async updateChannelNameAndTimestampDecorations(
     editor: vscode.TextEditor,
     slackUrls: RegExpMatchArray[]
   ): Promise<void> {
@@ -265,12 +269,25 @@ export class DecorationProvider {
           // Find channel ID position in URL
           const urlStart = match.index!
           const channelIdStart = match[0].indexOf(parsed.channelId)
-          const startPos = document.positionAt(urlStart + channelIdStart)
-          const endPos = document.positionAt(urlStart + channelIdStart + parsed.channelId.length)
+          const channelStartPos = document.positionAt(urlStart + channelIdStart)
+          const channelEndPos = document.positionAt(urlStart + channelIdStart + parsed.channelId.length)
+
+          // Find timestamp position in URL (the "p1234567890123456" part)
+          const timestampMatch = match[0].match(/\/p(\d+)/)
+          if (!timestampMatch) return null
+
+          const timestampStart = match[0].indexOf(timestampMatch[0])
+          const timestampStartPos = document.positionAt(urlStart + timestampStart + 1) // +1 to skip the '/'
+          const timestampEndPos = document.positionAt(urlStart + timestampStart + timestampMatch[0].length)
+
+          // Format the timestamp for display
+          const formattedTimestamp = formatTimestamp(parsed.messageTs, false)
 
           return {
-            channelIdRange: new vscode.Range(startPos, endPos),
-            channelName: channel.name
+            channelIdRange: new vscode.Range(channelStartPos, channelEndPos),
+            channelName: channel.name,
+            timestampRange: new vscode.Range(timestampStartPos, timestampEndPos),
+            formattedTimestamp
           }
         } catch (error) {
           console.error('Failed to fetch channel for decoration:', error)
@@ -281,7 +298,7 @@ export class DecorationProvider {
 
     const validDecorations = decorations.filter((d): d is NonNullable<typeof d> => d !== null)
     if (validDecorations.length > 0) {
-      this.decorationManager.applyChannelNameDecorations(editor, validDecorations)
+      this.decorationManager.applyChannelNameAndTimestampDecorations(editor, validDecorations)
     }
   }
 
