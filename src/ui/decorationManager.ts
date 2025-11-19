@@ -13,7 +13,6 @@ export class DecorationManager {
   private timestampDecorationType: vscode.TextEditorDecorationType | null = null
 
   createInlineDecorationType(settings: InlineSettings): vscode.TextEditorDecorationType {
-    // Dispose existing
     this.inlineDecorationType?.dispose()
 
     let renderOptions: vscode.DecorationRenderOptions
@@ -146,13 +145,11 @@ export class DecorationManager {
     if (!this.channelNameDecorationType) {
       this.channelNameDecorationType = vscode.window.createTextEditorDecorationType({
         color: "transparent",
-        letterSpacing: "-10em", // Collapse the original text so it takes no space
-        fontSize: "0.1px", // Make it tiny to minimize space
+        letterSpacing: "-10em",
         before: {
           contentText: "",
           color: "inherit",
-          fontWeight: "normal",
-          fontSize: "inherit" // Reset font size for the replacement text
+          fontWeight: "normal"
         }
       })
     }
@@ -160,13 +157,11 @@ export class DecorationManager {
     if (!this.timestampDecorationType) {
       this.timestampDecorationType = vscode.window.createTextEditorDecorationType({
         color: "transparent",
-        letterSpacing: "-10em", // Collapse the original text so it takes no space
-        fontSize: "0.1px", // Make it tiny to minimize space
+        letterSpacing: "-10em",
         before: {
           contentText: "",
           color: "inherit",
-          fontWeight: "normal",
-          fontSize: "inherit" // Reset font size for the replacement text
+          fontWeight: "normal"
         }
       })
     }
