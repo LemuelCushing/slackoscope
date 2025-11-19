@@ -145,22 +145,28 @@ export class DecorationManager {
     // Create or reuse decoration types
     if (!this.channelNameDecorationType) {
       this.channelNameDecorationType = vscode.window.createTextEditorDecorationType({
-        opacity: "0",
+        color: "transparent",
+        letterSpacing: "-10em", // Collapse the original text so it takes no space
+        fontSize: "0.1px", // Make it tiny to minimize space
         before: {
           contentText: "",
           color: "inherit",
-          fontWeight: "normal"
+          fontWeight: "normal",
+          fontSize: "inherit" // Reset font size for the replacement text
         }
       })
     }
 
     if (!this.timestampDecorationType) {
       this.timestampDecorationType = vscode.window.createTextEditorDecorationType({
-        opacity: "0",
+        color: "transparent",
+        letterSpacing: "-10em", // Collapse the original text so it takes no space
+        fontSize: "0.1px", // Make it tiny to minimize space
         before: {
           contentText: "",
           color: "inherit",
-          fontWeight: "normal"
+          fontWeight: "normal",
+          fontSize: "inherit" // Reset font size for the replacement text
         }
       })
     }
