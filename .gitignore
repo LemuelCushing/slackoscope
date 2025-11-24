@@ -1,6 +1,5 @@
 .DS_Store
 .vscode-test/
-.vscode/settings.json
 *.vsix
 dist
 node_modules
