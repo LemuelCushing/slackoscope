@@ -1,6 +1,6 @@
 # CLAUDE.md - Slackoscope Codebase Guide for AI Assistants
 
-**Last Updated**: 2025-11-14
+**Last Updated**: 2025-11-17
 
 This document provides comprehensive guidance for AI assistants working on the Slackoscope VS Code extension codebase.
 
@@ -26,11 +26,16 @@ This document provides comprehensive guidance for AI assistants working on the S
 **Slackoscope** is a VS Code extension that allows developers to view Slack messages inline in their code editor by hovering over Slack URLs.
 
 **Key Features:**
-- Hover over Slack URLs to preview message content
-- Insert Slack messages as comments in code
-- Language-agnostic comment insertion using VS Code snippets
-- Message caching to minimize API calls
-- Inline message display toggle command
+- Hover over Slack URLs to preview message content, threads, and file attachments
+- Insert Slack messages as comments with language-agnostic syntax detection
+- Toggle inline message display with customizable styling and positioning
+- Thread support with reply counts and full conversation views
+- Code actions (Cmd+.) for quick message insertion
+- Linear integration: detect issues in threads, post files as comments
+- 1Password integration for secure token management
+- Multi-tier caching to minimize API calls
+- Message age highlighting with customizable colors
+- Channel and user name display in hover and inline previews
 
 **Technology Stack:**
 - TypeScript (strict mode)
@@ -48,43 +53,94 @@ This document provides comprehensive guidance for AI assistants working on the S
 
 ```
 /home/user/slackoscope/
-├── src/                          # Source code (TypeScript)
-│   ├── extension.ts              # Main entry point (~120 lines)
-│   ├── slackApi.ts               # Slack API integration (~48 lines)
-│   └── test/
-│       └── extension.test.ts     # Test suite (minimal)
+├── src/                           # Source code (TypeScript)
+│   ├── extension.ts               # Main entry point - activation & registration
+│   ├── api/                       # API integrations
+│   │   ├── slackApi.ts            # Slack API client (messages, threads, users, channels)
+│   │   ├── linearApi.ts           # Linear API client (issues, comments)
+│   │   └── onePasswordApi.ts      # 1Password CLI integration
+│   ├── cache/                     # Caching system
+│   │   ├── cacheManager.ts        # Multi-tier cache coordinator
+│   │   ├── simpleCache.ts         # In-memory cache implementation
+│   │   └── cacheTypes.ts          # Cache interfaces
+│   ├── providers/                 # VS Code providers
+│   │   ├── hoverProvider.ts       # Hover tooltip provider
+│   │   ├── decorationProvider.ts  # Inline decoration provider
+│   │   └── codeActionProvider.ts  # Code actions provider (Cmd+.)
+│   ├── ui/                        # UI utilities
+│   │   ├── settingsManager.ts     # Configuration management
+│   │   ├── formatting.ts          # Text formatting utilities
+│   │   └── decorationManager.ts   # Decoration type management
+│   ├── commands/                  # Command implementations
+│   │   ├── index.ts               # Command registration
+│   │   ├── toggleInline.ts        # Toggle inline display
+│   │   ├── insertComment.ts       # Insert commented message
+│   │   ├── clearCache.ts          # Clear cache
+│   │   └── postToLinear.ts        # Post to Linear issue
+│   ├── types/                     # TypeScript interfaces
+│   │   ├── slack.ts               # Slack entity types
+│   │   ├── linear.ts              # Linear entity types
+│   │   └── settings.ts            # Settings interfaces
+│   └── test/                      # Test suite
+│       ├── extension.test.ts      # E2E extension tests
+│       └── slackApi.test.ts       # Slack API unit tests
 ├── dist/                          # Compiled output (esbuild)
-│   └── extension.js              # Bundled extension (generated)
+│   └── extension.js               # Bundled extension (generated)
 ├── .vscode/                       # VS Code workspace configuration
-│   ├── launch.json               # Debug configuration
-│   ├── tasks.json                # Build tasks
-│   ├── extensions.json           # Recommended extensions
-│   └── settings.json             # Workspace settings
+│   ├── launch.json                # Debug configuration
+│   ├── tasks.json                 # Build tasks
+│   ├── extensions.json            # Recommended extensions
+│   └── settings.json              # Workspace settings
 ├── package.json                   # Extension manifest
 ├── tsconfig.json                  # TypeScript configuration
 ├── esbuild.js                     # Build script
-├── .eslintrc.json                # Linting rules
+├── .eslintrc.json                 # Linting rules
 ├── .prettierrc                    # Code formatting rules
 ├── .gitignore                     # Git ignore patterns
 ├── .vscodeignore                  # Package ignore patterns
-└── .vscode-test.mjs              # Test runner config
+├── .vscode-test.mjs               # Test runner config
+└── IMPLEMENTATION_PLAN.md         # Feature implementation plan
 ```
 
 ### Module Responsibilities
 
-**`src/extension.ts`** - Main extension logic:
-- Extension activation/deactivation
+**`src/extension.ts`** - Main entry point:
+- Extension activation/deactivation lifecycle
+- Token loading (including 1Password integration)
+- Provider registration (hover, decorations, code actions)
 - Command registration
-- Hover provider implementation
-- Message caching
-- Comment insertion logic
-- Inline decoration rendering
+- Settings change handling
 
-**`src/slackApi.ts`** - Slack API integration:
-- Slack URL parsing and validation
-- API authentication
-- Message fetching
-- Error handling
+**`src/api/`** - External API integrations:
+- `slackApi.ts`: Slack REST API client (messages, threads, users, channels, URL parsing)
+- `linearApi.ts`: Linear GraphQL API client (issue lookup, comment creation)
+- `onePasswordApi.ts`: 1Password CLI integration for secure token loading
+
+**`src/cache/`** - Caching system:
+- `cacheManager.ts`: Multi-tier cache coordinator (messages, threads, users, channels, Linear issues)
+- `simpleCache.ts`: Generic in-memory Map-based cache
+- `cacheTypes.ts`: Cache interfaces
+
+**`src/providers/`** - VS Code provider implementations:
+- `hoverProvider.ts`: Hover tooltips with message content, threads, files, Linear issues
+- `decorationProvider.ts`: Inline ephemeral decorations with customizable styling
+- `codeActionProvider.ts`: Quick action menu for inserting messages as comments
+
+**`src/ui/`** - UI utilities:
+- `settingsManager.ts`: Configuration management with validation and change watching
+- `formatting.ts`: Message preview, time formatting, Linear issue detection
+- `decorationManager.ts`: Decoration type creation and application
+
+**`src/commands/`** - Command implementations:
+- `toggleInline.ts`: Toggle inline message display for current file
+- `insertComment.ts`: Insert message/thread as multi-line comment
+- `clearCache.ts`: Clear all caches
+- `postToLinear.ts`: Post current file as Linear comment
+
+**`src/types/`** - TypeScript type definitions:
+- `slack.ts`: Slack entities (SlackMessage, SlackUser, SlackChannel, ParsedSlackUrl)
+- `linear.ts`: Linear entities (LinearIssue, LinearComment)
+- `settings.ts`: Settings interfaces (InlineSettings, HoverSettings, HighlightingSettings)
 
 ---
 
@@ -94,7 +150,11 @@ This document provides comprehensive guidance for AI assistants working on the S
 
 - Node.js 18+ (for native Fetch API)
 - VS Code ^1.91.0
-- Slack API token (configured in extension settings)
+- Slack API token (optional for activation, required for Slack features)
+  - Extension activates and registers commands even without token
+  - Shows helpful warning when attempting API calls without token
+- Linear API token (optional, for Linear integration features)
+- 1Password CLI (optional, for secure token management)
 
 ### Installation
 
@@ -885,6 +945,29 @@ npm test              # Run tests
 - **300f0a5**: Fixed TypeScript configuration
 - **e98c768**: Fixed comment insertion with snippet mechanism, added message caching
 
+### Recent Improvements (2025-11-17)
+
+- ✅ **Major architectural refactoring**: Transformed monolithic structure into modular architecture
+  - Separated concerns into `api/`, `cache/`, `providers/`, `ui/`, `commands/`, `types/` directories
+  - Created 20+ focused modules replacing the original ~170-line monolith
+  - Full TypeScript strict mode compliance with comprehensive interfaces
+- ✅ **Thread support**: Added full thread conversation viewing with reply counts
+- ✅ **Inline message preview**: Customizable ephemeral display next to URLs
+  - Position options: right, above, below
+  - Configurable styling: font size, color, style
+  - Optional user names and timestamps (absolute or relative)
+- ✅ **Linear integration**: Detect Linear issues in threads, post files as comments
+- ✅ **File attachments**: View and preview file attachments in hover tooltips
+- ✅ **Message age highlighting**: Color-code URLs by message age with customizable thresholds
+- ✅ **Code actions**: Quick action menu (Cmd+.) for inserting messages as comments
+- ✅ **1Password integration**: Secure token loading from 1Password CLI
+- ✅ **Multi-tier caching**: Separate caches for messages, threads, users, channels, Linear issues
+- ✅ **Graceful activation**: Extension now activates without Slack token
+  - Removed early return in activate() function
+  - Token validation moved to API methods
+  - Shows helpful warnings when features require token
+- ✅ **Enhanced settings**: 14+ new configuration options across inline, hover, and highlighting categories
+
 ### Recent Improvements (2025-11-14)
 
 - ✅ **Session-based message caching**: Simple in-memory cache that clears on reload (messages can update)
@@ -893,15 +976,15 @@ npm test              # Run tests
 - ✅ **Documentation**: Expanded README with detailed Slack bot setup instructions
 - ✅ **Testing infrastructure**: Documented programmatic testing approach for AI agents
 
-### Future Improvements (Potential)
+### Implemented Features (Previously Potential)
 
-- Consider adding message formatting (bold, code blocks, etc.)
-- Support for thread messages
-- Support for private channels
-- Add support for Slack message reactions display
+- ~~Consider adding message formatting (bold, code blocks, etc.)~~ - Handled via markdown preview
+- ~~Support for thread messages~~ - ✅ Implemented (2025-11-17)
+- ~~Support for private channels~~ - Already supported via API scopes
+- ~~Add support for Slack message reactions display~~ - Defer to future
 
 ---
 
 **Document Maintainers**: Update this file when making significant architectural changes, adding new patterns, or changing development workflows.
 
-**Last Updated**: 2025-11-14 by AI Assistant
+**Last Updated**: 2025-11-17 by AI Assistant (Major architectural refactoring)
