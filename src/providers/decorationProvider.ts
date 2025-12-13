@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import type {SlackApi} from '../api/slackApi'
+import type {ISlackApi} from '../api/slackApi'
 import type {CacheManager} from '../cache/cacheManager'
 import type {SettingsManager} from '../ui/settingsManager'
 import {DecorationManager, type DecorationData} from '../ui/decorationManager'
@@ -13,7 +13,7 @@ export class DecorationProvider {
   private refreshInterval: NodeJS.Timeout | null = null
 
   constructor(
-    private slackApi: SlackApi,
+    private slackApi: ISlackApi,
     private cacheManager: CacheManager,
     private settingsManager: SettingsManager
   ) {
@@ -59,7 +59,7 @@ export class DecorationProvider {
     }
   }
 
-  updateApi(api: SlackApi): void {
+  updateApi(api: ISlackApi): void {
     this.slackApi = api
   }
 

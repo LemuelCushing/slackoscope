@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import type {SlackApi} from '../api/slackApi'
+import type {ISlackApi} from '../api/slackApi'
 import type {CacheManager} from '../cache/cacheManager'
 
 const createCommentedSnippet = (message: string): vscode.SnippetString => {
@@ -12,7 +12,7 @@ const createCommentedSnippet = (message: string): vscode.SnippetString => {
 }
 
 export async function insertCommentCommand(
-  slackApi: SlackApi,
+  slackApi: ISlackApi,
   cacheManager: CacheManager,
   args: {url: string}
 ): Promise<void> {

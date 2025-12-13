@@ -244,6 +244,52 @@ suite("Slackoscope Extension Behavioral Tests", () => {
 
       assert.ok(hoverText.length > 0, "Should display thread parent content")
     })
+
+    test("should detect Linear issues in thread replies", async () => {
+      // Set up Linear token for this test
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      await config.update("linearToken", "test-linear-token", vscode.ConfigurationTarget.Global)
+
+      try {
+        // Use threadReply URL which points to a thread that has a Linear bot reply
+        const threadUrl = TEST_SLACK_URLS.threadReply
+        const {doc} = await createTestDocument(`${threadUrl}\n`)
+
+        const urlPosition = doc.positionAt(20)
+        const hovers = await getHoverContent(doc, urlPosition)
+        const hoverText = extractHoverText(hovers)
+
+        // Should display Linear issue information from the thread
+        assert.ok(hoverText.includes("Linear") || hoverText.includes("TST-10291"), "Should display Linear issue from thread")
+      } finally {
+        // Clean up Linear token
+        await config.update("linearToken", undefined, vscode.ConfigurationTarget.Global)
+      }
+    })
+
+    test("should show Post to Linear action for thread URLs with Linear issues", async () => {
+      // Set up Linear token for this test
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      await config.update("linearToken", "test-linear-token", vscode.ConfigurationTarget.Global)
+
+      try {
+        const threadUrl = TEST_SLACK_URLS.threadReply
+        const {doc} = await createTestDocument(`${threadUrl}\n`)
+
+        const urlPosition = doc.positionAt(20)
+        const hovers = await getHoverContent(doc, urlPosition)
+        const hoverText = extractHoverText(hovers)
+
+        // Should include Post to Linear command link
+        assert.ok(
+          hoverText.includes("Post") && (hoverText.includes("Linear") || hoverText.includes("TST-10291")),
+          "Should include Post to Linear action"
+        )
+      } finally {
+        // Clean up Linear token
+        await config.update("linearToken", undefined, vscode.ConfigurationTarget.Global)
+      }
+    })
   })
 
   suite("Message Caching Behavior", () => {

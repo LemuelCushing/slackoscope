@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
-import type {SlackApi} from '../api/slackApi'
-import type {LinearApi} from '../api/linearApi'
+import type {ISlackApi} from '../api/slackApi'
+import type {ILinearApi} from '../api/linearApi'
 import type {CacheManager} from '../cache/cacheManager'
 import type {SettingsManager} from '../ui/settingsManager'
 import type {DecorationProvider} from '../providers/decorationProvider'
@@ -10,8 +10,8 @@ import {clearCacheCommand} from './clearCache'
 import {postToLinearCommand} from './postToLinear'
 
 export interface CommandContext {
-  slackApi: SlackApi
-  linearApi: LinearApi | null
+  slackApi: ISlackApi
+  linearApi: ILinearApi | null
   cacheManager: CacheManager
   settingsManager: SettingsManager
   decorationProvider: DecorationProvider

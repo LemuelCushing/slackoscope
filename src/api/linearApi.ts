@@ -5,7 +5,13 @@ interface GraphQLResponse<T> {
   errors?: Array<{message: string}>
 }
 
-export class LinearApi {
+export interface ILinearApi {
+  getIssue(issueId: string): Promise<LinearIssue>
+  getIssueByIdentifier(identifier: string): Promise<LinearIssue>
+  createComment(issueId: string, body: string): Promise<LinearComment>
+}
+
+export class LinearApi implements ILinearApi {
   private apiUrl = 'https://api.linear.app/graphql'
   private token: string
 

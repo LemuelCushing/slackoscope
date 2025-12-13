@@ -1,8 +1,8 @@
 import * as vscode from "vscode"
-import type {LinearApi} from "../api/linearApi"
+import type {ILinearApi} from "../api/linearApi"
 
 export async function postToLinearCommand(
-  linearApi: LinearApi | null,
+  linearApi: ILinearApi | null,
   args: {issueId: string; identifier: string}
 ): Promise<void> {
   if (!linearApi) {

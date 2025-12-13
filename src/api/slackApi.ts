@@ -3,7 +3,16 @@ import type {SlackMessage, SlackUser, SlackChannel, ParsedSlackUrl} from "../typ
 export const SLACK_URL_REGEX =
   /https:\/\/[a-zA-Z0-9-]+\.slack\.com\/archives\/([A-Z0-9]+)\/p(\d+)(?:\?thread_ts=(\d+\.\d+)[^\s]*)?/
 
-export class SlackApi {
+export interface ISlackApi {
+  readonly SLACK_URL_REGEX: RegExp
+  parseSlackUrl(url: string): ParsedSlackUrl | null
+  getMessage(channelId: string, ts: string): Promise<SlackMessage>
+  getThread(channelId: string, threadTs: string): Promise<{parent: SlackMessage; replies: SlackMessage[]}>
+  getUser(userId: string): Promise<SlackUser>
+  getChannel(channelId: string): Promise<SlackChannel>
+}
+
+export class SlackApi implements ISlackApi {
   private token: string
   public readonly SLACK_URL_REGEX = SLACK_URL_REGEX
 
@@ -15,15 +24,6 @@ export class SlackApi {
     if (!this.token) {
       throw new Error("Slack token not configured. Please set slackoscope.token in your VS Code settings.")
     }
-  }
-
-  private isTestEnvironment(): boolean {
-    // Check if we're in a test environment by looking for test-specific indicators
-    return (
-      process.env.NODE_ENV === "test" ||
-      process.env.VSCODE_TEST === "1" ||
-      (typeof global !== "undefined" && (global as {__Mocha__?: unknown}).__Mocha__ !== undefined)
-    )
   }
 
   parseSlackUrl(url: string): ParsedSlackUrl | null {
@@ -42,16 +42,6 @@ export class SlackApi {
   }
 
   async getMessage(channelId: string, ts: string): Promise<SlackMessage> {
-    if (this.isTestEnvironment()) {
-      // Return mock data for tests
-      return {
-        ts: ts,
-        user: "U1234567890",
-        text: "Mock Slack message content",
-        channel: channelId
-      }
-    }
-
     this.ensureToken()
     const url = "https://slack.com/api/conversations.history"
     const body = new URLSearchParams({
@@ -78,18 +68,6 @@ export class SlackApi {
   }
 
   async getThreadReplies(channelId: string, threadTs: string): Promise<SlackMessage[]> {
-    if (this.isTestEnvironment()) {
-      // Return mock data for tests
-      return [
-        {
-          ts: threadTs,
-          user: "U1234567890",
-          text: "This is a test thread message",
-          channel: channelId
-        }
-      ]
-    }
-
     this.ensureToken()
     const url = "https://slack.com/api/conversations.replies"
     const params = new URLSearchParams({
@@ -121,17 +99,6 @@ export class SlackApi {
   }
 
   async getUser(userId: string): Promise<SlackUser> {
-    if (this.isTestEnvironment()) {
-      // Return mock data for tests
-      return {
-        id: userId,
-        name: "testuser",
-        realName: "Test User",
-        displayName: "Test User",
-        avatarUrl: "https://example.com/avatar.jpg"
-      }
-    }
-
     this.ensureToken()
     const url = `https://slack.com/api/users.info?user=${userId}`
     const response = await fetch(url, {
@@ -156,15 +123,6 @@ export class SlackApi {
   }
 
   async getChannel(channelId: string): Promise<SlackChannel> {
-    if (this.isTestEnvironment()) {
-      // Return mock data for tests
-      return {
-        id: channelId,
-        name: "test-channel",
-        isPrivate: false
-      }
-    }
-
     this.ensureToken()
     const url = `https://slack.com/api/conversations.info?channel=${channelId}`
     const response = await fetch(url, {

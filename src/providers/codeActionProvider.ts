@@ -1,14 +1,14 @@
 import * as vscode from 'vscode'
-import type {SlackApi} from '../api/slackApi'
+import type {ISlackApi} from '../api/slackApi'
 import type {CacheManager} from '../cache/cacheManager'
 
 export class CodeActionProvider implements vscode.CodeActionProvider {
   constructor(
-    private slackApi: SlackApi,
+    private slackApi: ISlackApi,
     private cacheManager: CacheManager
   ) {}
 
-  updateApi(api: SlackApi): void {
+  updateApi(api: ISlackApi): void {
     this.slackApi = api
   }
 

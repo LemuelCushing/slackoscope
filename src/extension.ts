@@ -1,30 +1,45 @@
-import * as vscode from 'vscode'
-import {SlackApi} from './api/slackApi'
-import {LinearApi} from './api/linearApi'
-import {OnePasswordApi} from './api/onePasswordApi'
-import {CacheManager} from './cache/cacheManager'
-import {SettingsManager} from './ui/settingsManager'
-import {HoverProvider} from './providers/hoverProvider'
-import {DecorationProvider} from './providers/decorationProvider'
-import {CodeActionProvider} from './providers/codeActionProvider'
-import {registerCommands} from './commands'
+import * as vscode from "vscode"
+import {SlackApi, type ISlackApi} from "./api/slackApi"
+import {LinearApi, type ILinearApi} from "./api/linearApi"
+import {OnePasswordApi} from "./api/onePasswordApi"
+import {CacheManager} from "./cache/cacheManager"
+import {SettingsManager} from "./ui/settingsManager"
+import {HoverProvider} from "./providers/hoverProvider"
+import {DecorationProvider} from "./providers/decorationProvider"
+import {CodeActionProvider} from "./providers/codeActionProvider"
+import {registerCommands} from "./commands"
 
-let slackApi: SlackApi
-let linearApi: LinearApi | null = null
+let slackApi: ISlackApi
+let linearApi: ILinearApi | null = null
 let cacheManager: CacheManager
 let settingsManager: SettingsManager
 let decorationProvider: DecorationProvider
 let hoverProvider: HoverProvider
 
+/**
+ * Factory functions for creating API instances - can be overridden in tests
+ */
+export const apiFactory = {
+  createSlackApi: (token: string): ISlackApi => new SlackApi(token),
+  createLinearApi: (token: string): ILinearApi => new LinearApi(token)
+}
+
 export async function activate(context: vscode.ExtensionContext) {
-  console.log('Slackoscope is activating...')
+  console.log("Slackoscope is activating...")
+  const isTestMode = process.env.NODE_ENV === "test"
+
+  // In test mode, override API factory to use mocks
+  if (isTestMode) {
+    const {MockSlackApi, MockLinearApi} = await import("./test/mocks.js")
+    apiFactory.createSlackApi = () => new MockSlackApi()
+    apiFactory.createLinearApi = () => new MockLinearApi()
+  }
 
   // Initialize managers
   settingsManager = new SettingsManager()
   cacheManager = new CacheManager()
 
   // Initialize 1Password API (skip in test mode to avoid auth prompts)
-  const isTestMode = process.env.NODE_ENV === 'test'
   const onePasswordApi = new OnePasswordApi()
   let has1Password = false
 
@@ -32,7 +47,7 @@ export async function activate(context: vscode.ExtensionContext) {
     has1Password = await onePasswordApi.isAvailable()
 
     if (!has1Password) {
-      console.warn('1Password CLI not available, using plain text tokens')
+      console.warn("1Password CLI not available, using plain text tokens")
     }
   }
 
@@ -47,27 +62,27 @@ export async function activate(context: vscode.ExtensionContext) {
         linearToken = await onePasswordApi.readSecret(linearToken)
       }
     } catch (error) {
-      console.error('Failed to load tokens from 1Password:', error)
-      vscode.window.showWarningMessage('Slackoscope: Failed to load tokens from 1Password, using plain text values')
+      console.error("Failed to load tokens from 1Password:", error)
+      vscode.window.showWarningMessage("Slackoscope: Failed to load tokens from 1Password, using plain text values")
     }
   }
 
   // Initialize Slack API (will work even without token, but show warning)
-  slackApi = new SlackApi(slackToken)
+  slackApi = apiFactory.createSlackApi(slackToken)
 
   // Only show warning in non-test environments to avoid test noise
   if (!slackToken && context.extensionMode !== vscode.ExtensionMode.Test) {
     vscode.window.showWarningMessage(
-      'Slackoscope: Slack token not configured. Please set slackoscope.token in your VS Code settings to enable Slack features.'
+      "Slackoscope: Slack token not configured. Please set slackoscope.token in your VS Code settings to enable Slack features."
     )
   }
 
   // Initialize Linear API (optional)
   if (linearToken) {
     try {
-      linearApi = new LinearApi(linearToken)
+      linearApi = apiFactory.createLinearApi(linearToken)
     } catch (error) {
-      console.error('Linear API initialization failed:', error)
+      console.error("Linear API initialization failed:", error)
     }
   }
 
@@ -77,8 +92,8 @@ export async function activate(context: vscode.ExtensionContext) {
   const codeActionProvider = new CodeActionProvider(slackApi, cacheManager)
 
   context.subscriptions.push(
-    vscode.languages.registerHoverProvider('*', hoverProvider),
-    vscode.languages.registerCodeActionsProvider('*', codeActionProvider, {
+    vscode.languages.registerHoverProvider("*", hoverProvider),
+    vscode.languages.registerCodeActionsProvider("*", codeActionProvider, {
       providedCodeActionKinds: [vscode.CodeActionKind.RefactorInline]
     })
   )
@@ -107,7 +122,7 @@ export async function activate(context: vscode.ExtensionContext) {
           }
         }
       } catch (error) {
-        console.error('Failed to reload tokens:', error)
+        console.error("Failed to reload tokens:", error)
         return
       }
 
@@ -119,7 +134,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
       // Only show warning in non-test environments
       if (!newSlackToken && context.extensionMode !== vscode.ExtensionMode.Test) {
-        vscode.window.showWarningMessage('Slackoscope: Slack token not configured')
+        vscode.window.showWarningMessage("Slackoscope: Slack token not configured")
       }
 
       // Update Linear API
@@ -128,7 +143,7 @@ export async function activate(context: vscode.ExtensionContext) {
           linearApi = new LinearApi(newLinearToken)
           hoverProvider.updateLinearApi(linearApi)
         } catch (error) {
-          console.warn('Failed to update Linear API:', error)
+          console.warn("Failed to update Linear API:", error)
           linearApi = null
           hoverProvider.updateLinearApi(null)
         }
@@ -139,7 +154,7 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   )
 
-  console.log('Slackoscope activated successfully')
+  console.log("Slackoscope activated successfully")
 }
 
 export function deactivate() {

@@ -1,6 +1,7 @@
 import * as assert from "assert"
 import * as vscode from "vscode"
-import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText, MockSlackApi} from "./testUtils"
+import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
+import {MockSlackApi} from "./mocks"
 
 suite("Slackoscope Extension E2E Tests", () => {
   setup(async () => {
