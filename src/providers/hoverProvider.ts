@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
-import type {SlackApi} from '../api/slackApi'
-import type {LinearApi} from '../api/linearApi'
+import type {ISlackApi} from '../api/slackApi'
+import type {ILinearApi} from '../api/linearApi'
 import type {CacheManager} from '../cache/cacheManager'
 import type {SettingsManager} from '../ui/settingsManager'
 import {formatRelativeTime, extractLinearIssueFromMessage} from '../ui/formatting'
@@ -8,17 +8,17 @@ import type {SlackUser, SlackChannel, ParsedSlackUrl} from '../types/slack'
 
 export class HoverProvider implements vscode.HoverProvider {
   constructor(
-    private slackApi: SlackApi,
+    private slackApi: ISlackApi,
     private cacheManager: CacheManager,
     private settingsManager: SettingsManager,
-    private linearApi: LinearApi | null = null
+    private linearApi: ILinearApi | null = null
   ) {}
 
-  updateApi(api: SlackApi): void {
+  updateApi(api: ISlackApi): void {
     this.slackApi = api
   }
 
-  updateLinearApi(api: LinearApi | null): void {
+  updateLinearApi(api: ILinearApi | null): void {
     this.linearApi = api
   }
 
@@ -219,7 +219,20 @@ export class HoverProvider implements vscode.HoverProvider {
     }
 
     // Check for Linear issues (including from bot messages)
-    const linearIssueId = extractLinearIssueFromMessage(targetMessage)
+    // First check the target message
+    let linearIssueId = extractLinearIssueFromMessage(targetMessage)
+
+    // If not found in target message, search through all messages in the thread
+    if (!linearIssueId) {
+      for (const message of allMessages) {
+        const messageLinearId = extractLinearIssueFromMessage(message)
+        if (messageLinearId) {
+          linearIssueId = messageLinearId
+          break
+        }
+      }
+    }
+
     if (linearIssueId && this.linearApi) {
       let issue = this.cacheManager.getLinearIssue(linearIssueId)
 
