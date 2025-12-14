@@ -1,11 +1,24 @@
 import * as vscode from "vscode"
 import type {InlineSettings, HoverSettings, HighlightingSettings} from "../types/settings"
 
+/**
+ * Describes which categories of settings changed
+ */
+export type SettingsChangeEvent = {
+  tokensChanged: boolean // slackToken or linearToken changed
+  displayChanged: boolean // inline, hover, or highlighting settings changed
+}
+
 export class SettingsManager {
   private config: vscode.WorkspaceConfiguration
+  private previousTokens: {slack: string; linear: string | undefined}
 
   constructor() {
     this.config = vscode.workspace.getConfiguration("slackoscope")
+    this.previousTokens = {
+      slack: this.slackToken,
+      linear: this.linearToken
+    }
   }
 
   refresh(): void {
@@ -54,11 +67,28 @@ export class SettingsManager {
     }
   }
 
-  onDidChange(callback: () => void): vscode.Disposable {
+  onDidChange(callback: (event: SettingsChangeEvent) => void): vscode.Disposable {
     return vscode.workspace.onDidChangeConfiguration((e: vscode.ConfigurationChangeEvent) => {
       if (e.affectsConfiguration("slackoscope")) {
+        const oldTokens = this.previousTokens
         this.refresh()
-        callback()
+
+        // Detect which categories changed
+        const tokensChanged =
+          oldTokens.slack !== this.slackToken || oldTokens.linear !== this.linearToken
+
+        const displayChanged =
+          e.affectsConfiguration("slackoscope.inline") ||
+          e.affectsConfiguration("slackoscope.hover") ||
+          e.affectsConfiguration("slackoscope.highlighting")
+
+        // Update tracked tokens
+        this.previousTokens = {
+          slack: this.slackToken,
+          linear: this.linearToken
+        }
+
+        callback({tokensChanged, displayChanged})
       }
     })
   }
