@@ -1,10 +1,11 @@
-import * as vscode from 'vscode'
-import type {ISlackApi} from '../api/slackApi'
-import type {ILinearApi} from '../api/linearApi'
-import type {CacheManager} from '../cache/cacheManager'
-import type {SettingsManager} from '../ui/settingsManager'
-import {formatRelativeTime, extractLinearIssueFromMessage} from '../ui/formatting'
-import type {SlackUser, SlackChannel, ParsedSlackUrl} from '../types/slack'
+import * as vscode from "vscode"
+import type {ISlackApi} from "../api/slackApi"
+import type {ILinearApi} from "../api/linearApi"
+import type {CacheManager} from "../cache/cacheManager"
+import type {SettingsManager} from "../ui/settingsManager"
+import {formatRelativeTime} from "../ui/formatting"
+import {extractLinearIssueFromMessage, cacheLinearMetadataFromMessages} from "../services/linearMetadata"
+import type {SlackUser, SlackChannel, ParsedSlackUrl} from "../types/slack"
 
 export class HoverProvider implements vscode.HoverProvider {
   constructor(
@@ -102,6 +103,9 @@ export class HoverProvider implements vscode.HoverProvider {
     }
 
     // Check for Linear issues (including from bot messages)
+    // Collect all messages to check (message + thread replies if available)
+    const allMessages = [message]
+
     // First check the message itself
     let linearIssueId = extractLinearIssueFromMessage(message)
 
@@ -111,6 +115,7 @@ export class HoverProvider implements vscode.HoverProvider {
       try {
         const thread = await this.slackApi.getThread(parsed.channelId, message.ts)
         if (thread.replies.length > 0) {
+          allMessages.push(...thread.replies)
           // Check each reply for Linear Asks bot
           for (const reply of thread.replies) {
             const replyLinearId = extractLinearIssueFromMessage(reply)
@@ -133,7 +138,7 @@ export class HoverProvider implements vscode.HoverProvider {
           issue = await this.linearApi.getIssueByIdentifier(linearIssueId)
           this.cacheManager.setLinearIssue(linearIssueId, issue)
         } catch (error) {
-          console.error('Failed to fetch Linear issue:', error)
+          console.error("Failed to fetch Linear issue:", error)
         }
       }
 
@@ -142,6 +147,9 @@ export class HoverProvider implements vscode.HoverProvider {
         markdown.appendMarkdown(`Status: ${issue.state.name}\n\n`)
       }
     }
+
+    // Cache URL metadata for code actions (we already have the messages)
+    await cacheLinearMetadataFromMessages(parsed.fullUrl, allMessages, this.linearApi, this.cacheManager)
 
     // Command links
     markdown.appendMarkdown(
@@ -241,7 +249,7 @@ export class HoverProvider implements vscode.HoverProvider {
           issue = await this.linearApi.getIssueByIdentifier(linearIssueId)
           this.cacheManager.setLinearIssue(linearIssueId, issue)
         } catch (error) {
-          console.error('Failed to fetch Linear issue:', error)
+          console.error("Failed to fetch Linear issue:", error)
         }
       }
 
@@ -250,6 +258,9 @@ export class HoverProvider implements vscode.HoverProvider {
         markdown.appendMarkdown(`Status: ${issue.state.name}\n\n`)
       }
     }
+
+    // Cache URL metadata for code actions (we already have the messages)
+    await cacheLinearMetadataFromMessages(parsed.fullUrl, allMessages, this.linearApi, this.cacheManager)
 
     // Command links - pass the specific message, not the whole thread
     markdown.appendMarkdown(

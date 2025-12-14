@@ -1,6 +1,7 @@
-import type {SlackMessage, SlackUser, SlackChannel} from '../types/slack'
-import type {LinearIssue} from '../types/linear'
-import type {Cache} from './cacheTypes'
+import type {SlackMessage, SlackUser, SlackChannel} from "../types/slack"
+import type {LinearIssue} from "../types/linear"
+import type {LinearUrlMetadata} from "../services/linearMetadata"
+import type {Cache} from "./cacheTypes"
 
 class SimpleCache<T> implements Cache<T> {
   private map = new Map<string, T>()
@@ -32,6 +33,7 @@ export class CacheManager {
   private channelCache = new SimpleCache<SlackChannel>()
   private threadCache = new SimpleCache<{parent: SlackMessage; replies: SlackMessage[]}>()
   private linearIssueCache = new SimpleCache<LinearIssue>()
+  private urlMetadataCache = new SimpleCache<LinearUrlMetadata>()
 
   // Message cache
   getMessage(key: string): SlackMessage | undefined {
@@ -78,6 +80,15 @@ export class CacheManager {
     this.linearIssueCache.set(identifier, issue)
   }
 
+  // URL metadata cache (Slack URL → Linear issue association)
+  getUrlMetadata(url: string): LinearUrlMetadata | undefined {
+    return this.urlMetadataCache.get(url)
+  }
+
+  setUrlMetadata(url: string, metadata: LinearUrlMetadata): void {
+    this.urlMetadataCache.set(url, metadata)
+  }
+
   // Global operations
   clearAll(): void {
     this.messageCache.clear()
@@ -85,15 +96,24 @@ export class CacheManager {
     this.channelCache.clear()
     this.threadCache.clear()
     this.linearIssueCache.clear()
+    this.urlMetadataCache.clear()
   }
 
-  getStats(): {messages: number; users: number; channels: number; threads: number; linearIssues: number} {
+  getStats(): {
+    messages: number
+    users: number
+    channels: number
+    threads: number
+    linearIssues: number
+    urlMetadata: number
+  } {
     return {
       messages: this.messageCache.size,
       users: this.userCache.size,
       channels: this.channelCache.size,
       threads: this.threadCache.size,
-      linearIssues: this.linearIssueCache.size
+      linearIssues: this.linearIssueCache.size,
+      urlMetadata: this.urlMetadataCache.size
     }
   }
 }

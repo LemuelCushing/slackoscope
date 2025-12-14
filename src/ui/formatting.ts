@@ -49,53 +49,14 @@ export function formatRelativeTime(date: Date): string {
   return date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})
 }
 
-export function getMessageAge(ts: string): 'today' | 'recent' | 'old' {
+export function getMessageAge(ts: string): "today" | "recent" | "old" {
   const timestamp = parseFloat(ts) * 1000
   const date = new Date(timestamp)
   const now = new Date()
 
   const isToday = date.toDateString() === now.toDateString()
-  if (isToday) return 'today'
+  if (isToday) return "today"
 
   const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000)
-  return diffDays < 7 ? 'recent' : 'old'
-}
-
-const LINEAR_ISSUE_REGEX = /\b([A-Z]{2,}-\d+)\b/g
-const LINEAR_URL_REGEX = /linear\.app\/[^/]+\/issue\/([A-Z]{2,}-\d+)/
-
-export function findLinearIssues(text: string): string[] {
-  const matches = text.matchAll(LINEAR_ISSUE_REGEX)
-  const issues = new Set<string>()
-
-  for (const match of matches) {
-    issues.add(match[1])
-  }
-
-  return Array.from(issues)
-}
-
-export function extractLinearIssueFromMessage(message: {
-  text: string
-  bot_profile?: {name: string}
-  attachments?: Array<{from_url?: string}>
-}): string | null {
-  // Check if this is a Linear Asks bot message
-  if (message.bot_profile?.name === 'Linear Asks') {
-    if (message.attachments) {
-      // Look for Linear URL in attachments
-      for (const attachment of message.attachments) {
-        if (attachment.from_url) {
-          const match = attachment.from_url.match(LINEAR_URL_REGEX)
-          if (match) {
-            return match[1] // Return the issue identifier (e.g., "TST-10291")
-          }
-        }
-      }
-    }
-  }
-
-  // Fallback: check message text for Linear issue identifiers
-  const issues = findLinearIssues(message.text)
-  return issues.length > 0 ? issues[0] : null
+  return diffDays < 7 ? "recent" : "old"
 }

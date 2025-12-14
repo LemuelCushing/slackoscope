@@ -82,8 +82,8 @@ class SlackoscopeExtension implements vscode.Disposable {
     await this.reconfigureFromSettings()
 
     this.hover = new HoverProvider(this.slackApi, this.cache, this.settings, this.linearApi)
-    this.decoration = new DecorationProvider(this.slackApi, this.cache, this.settings)
-    this.codeActions = new CodeActionProvider(this.slackApi, this.cache)
+    this.decoration = new DecorationProvider(this.slackApi, this.cache, this.settings, this.linearApi)
+    this.codeActions = new CodeActionProvider(this.slackApi, this.cache, this.linearApi)
     this.providersInitialized = true
 
     this.disposer.add(
@@ -181,6 +181,8 @@ class SlackoscopeExtension implements vscode.Disposable {
     this.decoration.updateApi(this.slackApi)
     this.codeActions.updateApi(this.slackApi)
     this.hover.updateLinearApi(this.linearApi)
+    this.decoration.updateLinearApi(this.linearApi)
+    this.codeActions.updateLinearApi(this.linearApi)
   }
 
   /**

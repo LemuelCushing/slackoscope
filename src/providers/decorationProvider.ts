@@ -1,10 +1,12 @@
-import * as vscode from 'vscode'
-import type {ISlackApi} from '../api/slackApi'
-import type {CacheManager} from '../cache/cacheManager'
-import type {SettingsManager} from '../ui/settingsManager'
-import {DecorationManager, type DecorationData} from '../ui/decorationManager'
-import {formatMessagePreview, formatTimestamp, getMessageAge} from '../ui/formatting'
-import type {SlackMessage, SlackUser, SlackChannel} from '../types/slack'
+import * as vscode from "vscode"
+import type {ISlackApi} from "../api/slackApi"
+import type {ILinearApi} from "../api/linearApi"
+import type {CacheManager} from "../cache/cacheManager"
+import type {SettingsManager} from "../ui/settingsManager"
+import {DecorationManager, type DecorationData} from "../ui/decorationManager"
+import {formatMessagePreview, formatTimestamp, getMessageAge} from "../ui/formatting"
+import {cacheLinearMetadataFromMessages} from "../services/linearMetadata"
+import type {SlackMessage, SlackUser, SlackChannel} from "../types/slack"
 
 export class DecorationProvider {
   private decorationManager = new DecorationManager()
@@ -15,7 +17,8 @@ export class DecorationProvider {
   constructor(
     private slackApi: ISlackApi,
     private cacheManager: CacheManager,
-    private settingsManager: SettingsManager
+    private settingsManager: SettingsManager,
+    private linearApi: ILinearApi | null = null
   ) {
     // Initial update for all visible editors
     vscode.window.visibleTextEditors.forEach(editor => {
@@ -61,6 +64,10 @@ export class DecorationProvider {
 
   updateApi(api: ISlackApi): void {
     this.slackApi = api
+  }
+
+  updateLinearApi(api: ILinearApi | null): void {
+    this.linearApi = api
   }
 
   toggle(): void {
@@ -157,6 +164,9 @@ export class DecorationProvider {
           const targetMessage = allMessages.find(m => m.ts === parsed.messageTs)
           message = targetMessage || thread.parent
           replyCount = thread.replies.length
+
+          // Cache Linear metadata for this URL (we have all messages)
+          await cacheLinearMetadataFromMessages(match[0], allMessages, this.linearApi, this.cacheManager)
         } else {
           // Regular message
           const cacheKey = `${parsed.channelId}:${parsed.messageTs}`
@@ -167,6 +177,9 @@ export class DecorationProvider {
             message = await this.slackApi.getMessage(parsed.channelId, parsed.messageTs)
             this.cacheManager.setMessage(cacheKey, message)
           }
+
+          // Cache Linear metadata for this URL
+          await cacheLinearMetadataFromMessages(match[0], [message], this.linearApi, this.cacheManager)
         }
 
         // Build inline text
