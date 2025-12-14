@@ -6,9 +6,12 @@ export interface DecorationData {
   text: string
 }
 
+export type HighlightBucket = "today" | "old"
+export type HighlightDecorations = Record<HighlightBucket, vscode.Range[]>
+
 export class DecorationManager {
   private inlineDecorationType: vscode.TextEditorDecorationType | null = null
-  private highlightDecorationTypes: Map<string, vscode.TextEditorDecorationType> = new Map()
+  private highlightDecorationTypes: Map<HighlightBucket, vscode.TextEditorDecorationType> = new Map()
   private channelNameDecorationType: vscode.TextEditorDecorationType | null = null
   private timestampDecorationType: vscode.TextEditorDecorationType | null = null
 
@@ -96,7 +99,7 @@ export class DecorationManager {
 
   applyHighlightDecorations(
     editor: vscode.TextEditor,
-    decorations: Map<string, DecorationData[]>,
+    decorations: HighlightDecorations,
     settings: HighlightingSettings
   ): void {
     if (!settings.enabled) return
@@ -113,17 +116,8 @@ export class DecorationManager {
     this.highlightDecorationTypes.set("old", oldType)
 
     // Apply decorations
-    const todayDecorations = decorations.get("today") || []
-    const oldDecorations = decorations.get("old") || []
-
-    editor.setDecorations(
-      todayType,
-      todayDecorations.map(d => d.range)
-    )
-    editor.setDecorations(
-      oldType,
-      oldDecorations.map(d => d.range)
-    )
+    editor.setDecorations(todayType, decorations.today)
+    editor.setDecorations(oldType, decorations.old)
   }
 
   clearHighlightDecorations(editor: vscode.TextEditor): void {

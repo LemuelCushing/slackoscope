@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import type {ISlackApi} from '../api/slackApi'
 import type {CacheManager} from '../cache/cacheManager'
+import {getOrFetchMessagesForUrl} from '../services/slackData'
 
 const createCommentedSnippet = (message: string): vscode.SnippetString => {
   return new vscode.SnippetString(
@@ -29,38 +30,8 @@ export async function insertCommentCommand(
       return
     }
 
-    let messageContent: string
-
-    // Handle thread reply vs regular message
-    // For thread URLs, show only the specific message, not the whole thread
-    if (parsed.threadTs) {
-      // Fetch the thread
-      let thread = cacheManager.getThread(parsed.threadTs)
-      if (!thread) {
-        thread = await slackApi.getThread(parsed.channelId, parsed.threadTs)
-        cacheManager.setThread(parsed.threadTs, thread)
-      }
-
-      // Find the specific message in the thread
-      const allMessages = [thread.parent, ...thread.replies]
-      const targetMessage = allMessages.find(m => m.ts === parsed.messageTs)
-
-      if (targetMessage) {
-        messageContent = targetMessage.text
-      } else {
-        // Fallback to parent if we can't find the specific message
-        messageContent = thread.parent.text
-      }
-    } else {
-      // Regular message
-      const cacheKey = `${parsed.channelId}:${parsed.messageTs}`
-      let message = cacheManager.getMessage(cacheKey)
-      if (!message) {
-        message = await slackApi.getMessage(parsed.channelId, parsed.messageTs)
-        cacheManager.setMessage(cacheKey, message)
-      }
-      messageContent = message.text
-    }
+    const {targetMessage} = await getOrFetchMessagesForUrl(slackApi, cacheManager, parsed)
+    const messageContent = targetMessage.text
 
     const commentSnippet = createCommentedSnippet(messageContent)
 

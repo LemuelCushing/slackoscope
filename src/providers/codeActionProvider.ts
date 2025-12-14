@@ -2,7 +2,8 @@ import * as vscode from "vscode"
 import type {ISlackApi} from "../api/slackApi"
 import type {ILinearApi} from "../api/linearApi"
 import type {CacheManager} from "../cache/cacheManager"
-import {ensureUrlMetadataPopulated, type LinearUrlMetadata} from "../services/linearMetadata"
+import {getOrFetchUrlMetadata, type LinearUrlMetadata} from "../services/linearMetadata"
+import {pickSlackUrlMatchForLine} from "../lib/slackUrl"
 
 export class CodeActionProvider implements vscode.CodeActionProvider {
   constructor(
@@ -23,35 +24,22 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
     document: vscode.TextDocument,
     range: vscode.Range | vscode.Selection
   ): Promise<vscode.CodeAction[]> {
-    const actions: vscode.CodeAction[] = []
-
-    // Check if cursor is on a Slack URL
     const position = range.start
     const line = document.lineAt(position.line)
-    const globalRegex = new RegExp(this.slackApi.SLACK_URL_REGEX.source, "g")
-    const matches = line.text.matchAll(globalRegex)
+    const url = pickSlackUrlMatchForLine(this.slackApi, line, position)
+    if (!url) return []
 
-    for (const match of matches) {
-      const startPos = line.range.start.translate(0, match.index!)
-      const endPos = startPos.translate(0, match[0].length)
-      const urlRange = new vscode.Range(startPos, endPos)
+    const actions: vscode.CodeAction[] = []
 
-      if (urlRange.contains(position)) {
-        const url = match[0]
+    // Always show insert comment action
+    actions.push(this.createInsertCommentAction(url.fullUrl))
 
-        // Always show insert comment action
-        actions.push(this.createInsertCommentAction(url))
+    // Ensure URL metadata is cached (will use cache if already populated)
+    const metadata = await getOrFetchUrlMetadata(url.fullUrl, this.slackApi, this.linearApi, this.cacheManager)
 
-        // Ensure URL metadata is cached (will use cache if already populated)
-        const metadata = await ensureUrlMetadataPopulated(url, this.slackApi, this.linearApi, this.cacheManager)
-
-        // Conditionally show Linear action if issue found
-        if (metadata?.linearIssueId && metadata?.linearIdentifier) {
-          actions.push(this.createPostToLinearAction(url, metadata))
-        }
-
-        break
-      }
+    // Conditionally show Linear action if issue found
+    if (metadata.linearIssueId && metadata.linearIdentifier) {
+      actions.push(this.createPostToLinearAction(url.fullUrl, metadata))
     }
 
     return actions

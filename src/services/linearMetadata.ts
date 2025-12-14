@@ -2,6 +2,7 @@ import type {ILinearApi} from "../api/linearApi"
 import type {ISlackApi} from "../api/slackApi"
 import type {CacheManager} from "../cache/cacheManager"
 import type {SlackMessage} from "../types/slack"
+import {getOrFetchMessagesForUrl} from "./slackData"
 
 /**
  * Metadata about Linear issues associated with Slack URLs
@@ -108,12 +109,12 @@ export async function cacheLinearMetadataFromMessages(
 }
 
 /**
- * Ensure URL metadata is cached, fetching messages if necessary.
+ * Get URL metadata from cache, fetching messages if needed.
  * Use this when you don't have the messages yet (e.g., in CodeActionProvider).
  *
  * This is the fallback path - will fetch messages from Slack if needed.
  */
-export async function ensureUrlMetadataPopulated(
+export async function getOrFetchUrlMetadata(
   url: string,
   slackApi: ISlackApi,
   linearApi: ILinearApi | null,
@@ -133,23 +134,7 @@ export async function ensureUrlMetadataPopulated(
   }
 
   // Fetch thread or message
-  let messages: SlackMessage[]
-  if (parsed.threadTs) {
-    let thread = cacheManager.getThread(parsed.threadTs)
-    if (!thread) {
-      thread = await slackApi.getThread(parsed.channelId, parsed.threadTs)
-      cacheManager.setThread(parsed.threadTs, thread)
-    }
-    messages = [thread.parent, ...thread.replies]
-  } else {
-    const cacheKey = `${parsed.channelId}:${parsed.messageTs}`
-    let message = cacheManager.getMessage(cacheKey)
-    if (!message) {
-      message = await slackApi.getMessage(parsed.channelId, parsed.messageTs)
-      cacheManager.setMessage(cacheKey, message)
-    }
-    messages = [message]
-  }
+  const {messages} = await getOrFetchMessagesForUrl(slackApi, cacheManager, parsed)
 
   await cacheLinearMetadataFromMessages(url, messages, linearApi, cacheManager)
 

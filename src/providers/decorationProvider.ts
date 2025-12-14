@@ -3,16 +3,19 @@ import type {ISlackApi} from "../api/slackApi"
 import type {ILinearApi} from "../api/linearApi"
 import type {CacheManager} from "../cache/cacheManager"
 import type {SettingsManager} from "../ui/settingsManager"
-import {DecorationManager, type DecorationData} from "../ui/decorationManager"
-import {formatMessagePreview, formatTimestamp, getMessageAge} from "../ui/formatting"
+import {DecorationManager, type HighlightDecorations} from "../ui/decorationManager"
+import {formatMessagePreview, formatTimestamp} from "../ui/formatting"
 import {cacheLinearMetadataFromMessages} from "../services/linearMetadata"
-import type {SlackMessage, SlackUser, SlackChannel} from "../types/slack"
+import type {SlackMessage} from "../types/slack"
+import {getOrFetchChannel, getOrFetchMessagesForUrl, getOrFetchUser} from "../services/slackData"
+import {SlackUrlMatch} from "../lib/slackUrl"
 
 export class DecorationProvider {
   private decorationManager = new DecorationManager()
   private isEnabled = true
   private updateTimeout: NodeJS.Timeout | null = null
   private refreshInterval: NodeJS.Timeout | null = null
+  private readonly disposables: vscode.Disposable[] = []
 
   constructor(
     private slackApi: ISlackApi,
@@ -26,35 +29,37 @@ export class DecorationProvider {
     })
 
     // Watch for document/editor changes
-    vscode.workspace.onDidChangeTextDocument((e: vscode.TextDocumentChangeEvent) => {
-      const editor = vscode.window.activeTextEditor
-      if (editor && e.document === editor.document) {
-        this.scheduleUpdate(editor)
-      }
-    })
+    this.disposables.push(
+      vscode.workspace.onDidChangeTextDocument((e: vscode.TextDocumentChangeEvent) => {
+        const editor = vscode.window.activeTextEditor
+        if (editor && e.document === editor.document) {
+          this.scheduleUpdate(editor)
+        }
+      }),
 
-    vscode.window.onDidChangeActiveTextEditor((editor: vscode.TextEditor | undefined) => {
-      if (editor) {
-        this.updateDecorations(editor)
-      }
-    })
+      vscode.window.onDidChangeActiveTextEditor((editor: vscode.TextEditor | undefined) => {
+        if (editor) {
+          this.updateDecorations(editor)
+        }
+      }),
 
-    // Watch for settings changes
-    settingsManager.onDidChange(() => {
-      this.decorationManager.dispose()
-      this.decorationManager = new DecorationManager()
+      // Watch for settings changes
+      settingsManager.onDidChange(() => {
+        this.decorationManager.dispose()
+        this.decorationManager = new DecorationManager()
 
-      // Restart auto-refresh if needed
-      if (this.settingsManager.inline.useRelativeTime) {
-        this.startAutoRefresh()
-      } else {
-        this.stopAutoRefresh()
-      }
+        // Restart auto-refresh if needed
+        if (this.settingsManager.inline.useRelativeTime) {
+          this.startAutoRefresh()
+        } else {
+          this.stopAutoRefresh()
+        }
 
-      vscode.window.visibleTextEditors.forEach((editor: vscode.TextEditor) => {
-        this.updateDecorations(editor)
+        vscode.window.visibleTextEditors.forEach((editor: vscode.TextEditor) => {
+          this.updateDecorations(editor)
+        })
       })
-    })
+    )
 
     // Auto-refresh relative times if enabled
     if (this.settingsManager.inline.useRelativeTime) {
@@ -114,9 +119,7 @@ export class DecorationProvider {
 
   private async updateDecorations(editor: vscode.TextEditor): Promise<void> {
     const document = editor.document
-    const text = document.getText()
-    const globalRegex = new RegExp(this.slackApi.SLACK_URL_REGEX.source, 'g')
-    const slackUrls = [...text.matchAll(globalRegex)]
+    const slackUrls = SlackUrlMatch.allInDocument(this.slackApi, document)
 
     if (slackUrls.length === 0) {
       this.decorationManager.clearInlineDecorations(editor)
@@ -142,52 +145,24 @@ export class DecorationProvider {
     }
 
     // Fetch all messages concurrently
-    const decorationPromises = slackUrls.map(async match => {
+    const decorationPromises = slackUrls.map(async slackUrl => {
       try {
-        const parsed = this.slackApi.parseSlackUrl(match[0])
-        if (!parsed) return null
+        const parsed = slackUrl.parsed
+        const {targetMessage: message, messages, replyCount} = await getOrFetchMessagesForUrl(
+          this.slackApi,
+          this.cacheManager,
+          parsed
+        )
 
-        let message: SlackMessage
-        let replyCount = 0
-
-        // Check if thread URL
-        if (parsed.threadTs) {
-          let thread = this.cacheManager.getThread(parsed.threadTs)
-          if (!thread) {
-            // Fetch thread
-            thread = await this.slackApi.getThread(parsed.channelId, parsed.threadTs)
-            this.cacheManager.setThread(parsed.threadTs, thread)
-          }
-
-          // Find the specific message in the thread that the URL points to
-          const allMessages = [thread.parent, ...thread.replies]
-          const targetMessage = allMessages.find(m => m.ts === parsed.messageTs)
-          message = targetMessage || thread.parent
-          replyCount = thread.replies.length
-
-          // Cache Linear metadata for this URL (we have all messages)
-          await cacheLinearMetadataFromMessages(match[0], allMessages, this.linearApi, this.cacheManager)
-        } else {
-          // Regular message
-          const cacheKey = `${parsed.channelId}:${parsed.messageTs}`
-          const cachedMessage = this.cacheManager.getMessage(cacheKey)
-          if (cachedMessage) {
-            message = cachedMessage
-          } else {
-            message = await this.slackApi.getMessage(parsed.channelId, parsed.messageTs)
-            this.cacheManager.setMessage(cacheKey, message)
-          }
-
-          // Cache Linear metadata for this URL
-          await cacheLinearMetadataFromMessages(match[0], [message], this.linearApi, this.cacheManager)
-        }
+        // Cache Linear metadata for this URL (we already have the messages)
+        await cacheLinearMetadataFromMessages(slackUrl.fullUrl, messages, this.linearApi, this.cacheManager)
 
         // Build inline text
         let inlineText = ''
 
         // Add user name if enabled
         if (this.settingsManager.inline.showUser) {
-          const user = await this.fetchUser(message.user)
+          const user = await getOrFetchUser(this.slackApi, this.cacheManager, message.user)
           inlineText += `@${user.displayName}: `
         }
 
@@ -206,11 +181,7 @@ export class DecorationProvider {
           inlineText += ` 🧵 ${replyCount}`
         }
 
-        const startPos = document.positionAt(match.index!)
-        const endPos = document.positionAt(match.index! + match[0].length)
-        const range = new vscode.Range(startPos, endPos)
-
-        return {range, text: inlineText, message, age: getMessageAge(message.ts)}
+        return {range: slackUrl.range, text: inlineText, message}
       } catch (error) {
         console.error('Failed to fetch message for decoration:', error)
         return null
@@ -233,73 +204,55 @@ export class DecorationProvider {
 
   private async updateHighlightDecorations(
     editor: vscode.TextEditor,
-    results: Array<{range: vscode.Range; text: string; message: SlackMessage; age: 'today' | 'recent' | 'old'}>
+    results: Array<{range: vscode.Range; text: string; message: SlackMessage}>
   ): Promise<void> {
     if (!this.settingsManager.highlighting.enabled) {
       this.decorationManager.clearHighlightDecorations(editor)
       return
     }
 
-    const highlightDecorations = new Map<string, DecorationData[]>()
-    highlightDecorations.set('today', [])
-    highlightDecorations.set('old', [])
+    const highlightRanges: HighlightDecorations = {today: [], old: []}
 
     const settings = this.settingsManager.highlighting
 
-    for (const {range, message, age} of results) {
-      if (age === 'today') {
-        highlightDecorations.get('today')!.push({range, text: ''})
-      } else if (age === 'old') {
-        // Check if older than threshold
-        const timestamp = parseFloat(message.ts) * 1000
-        const date = new Date(timestamp)
-        const now = new Date()
-        const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000)
+    for (const {range, message} of results) {
+      const timestamp = parseFloat(message.ts) * 1000
+      const date = new Date(timestamp)
+      const now = new Date()
 
-        if (diffDays >= settings.oldDays) {
-          highlightDecorations.get('old')!.push({range, text: ''})
-        }
+      if (date.toDateString() === now.toDateString()) {
+        highlightRanges.today.push(range)
+        continue
+      }
+
+      const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000)
+      if (diffDays >= settings.oldDays) {
+        highlightRanges.old.push(range)
       }
     }
 
-    this.decorationManager.applyHighlightDecorations(editor, highlightDecorations, settings)
+    this.decorationManager.applyHighlightDecorations(editor, highlightRanges, settings)
   }
 
   private async updateChannelNameAndTimestampDecorations(
     editor: vscode.TextEditor,
-    slackUrls: RegExpMatchArray[]
+    slackUrls: SlackUrlMatch[]
   ): Promise<void> {
-    const document = editor.document
-
     const decorations = await Promise.all(
-      slackUrls.map(async match => {
+      slackUrls.map(async slackUrl => {
         try {
-          const parsed = this.slackApi.parseSlackUrl(match[0])
-          if (!parsed) return null
-
-          const channel = await this.fetchChannel(parsed.channelId)
-
-          // Find channel ID position in URL
-          const urlStart = match.index!
-          const channelIdStart = match[0].indexOf(parsed.channelId)
-          const channelStartPos = document.positionAt(urlStart + channelIdStart)
-          const channelEndPos = document.positionAt(urlStart + channelIdStart + parsed.channelId.length)
-
-          // Find timestamp position in URL (the "p1234567890123456" part)
-          const timestampMatch = match[0].match(/\/p(\d+)/)
-          if (!timestampMatch) return null
-
-          const timestampStart = match[0].indexOf(timestampMatch[0])
-          const timestampStartPos = document.positionAt(urlStart + timestampStart + 1) // +1 to skip the '/'
-          const timestampEndPos = document.positionAt(urlStart + timestampStart + timestampMatch[0].length)
+          const channel = await getOrFetchChannel(this.slackApi, this.cacheManager, slackUrl.channelId)
+          const channelIdRange = slackUrl.channelIdRange()
+          const timestampRange = slackUrl.timestampRange()
+          if (!channelIdRange || !timestampRange) return null
 
           // Format the timestamp for display
-          const formattedTimestamp = formatTimestamp(parsed.messageTs, false)
+          const formattedTimestamp = formatTimestamp(slackUrl.messageTs, false)
 
           return {
-            channelIdRange: new vscode.Range(channelStartPos, channelEndPos),
+            channelIdRange,
             channelName: channel.name,
-            timestampRange: new vscode.Range(timestampStartPos, timestampEndPos),
+            timestampRange,
             formattedTimestamp
           }
         } catch (error) {
@@ -315,25 +268,8 @@ export class DecorationProvider {
     }
   }
 
-  private async fetchUser(userId: string): Promise<SlackUser> {
-    let user = this.cacheManager.getUser(userId)
-    if (!user) {
-      user = await this.slackApi.getUser(userId)
-      this.cacheManager.setUser(userId, user)
-    }
-    return user
-  }
-
-  private async fetchChannel(channelId: string): Promise<SlackChannel> {
-    let channel = this.cacheManager.getChannel(channelId)
-    if (!channel) {
-      channel = await this.slackApi.getChannel(channelId)
-      this.cacheManager.setChannel(channelId, channel)
-    }
-    return channel
-  }
-
   dispose(): void {
+    this.disposables.splice(0).forEach(d => d.dispose())
     this.decorationManager.dispose()
     this.stopAutoRefresh()
     if (this.updateTimeout) {

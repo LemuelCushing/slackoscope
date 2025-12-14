@@ -35,13 +35,17 @@ export class CacheManager {
   private linearIssueCache = new SimpleCache<LinearIssue>()
   private urlMetadataCache = new SimpleCache<LinearUrlMetadata>()
 
-  // Message cache
-  getMessage(key: string): SlackMessage | undefined {
-    return this.messageCache.get(key)
+  private messageKey(channelId: string, ts: string): string {
+    return `${channelId}:${ts}`
   }
 
-  setMessage(key: string, message: SlackMessage): void {
-    this.messageCache.set(key, message)
+  // Message cache
+  getMessage(channelId: string, ts: string): SlackMessage | undefined {
+    return this.messageCache.get(this.messageKey(channelId, ts))
+  }
+
+  setMessage(channelId: string, ts: string, message: SlackMessage): void {
+    this.messageCache.set(this.messageKey(channelId, ts), message)
   }
 
   // User cache

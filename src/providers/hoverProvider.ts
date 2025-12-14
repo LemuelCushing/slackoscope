@@ -5,7 +5,9 @@ import type {CacheManager} from "../cache/cacheManager"
 import type {SettingsManager} from "../ui/settingsManager"
 import {formatRelativeTime} from "../ui/formatting"
 import {extractLinearIssueFromMessage, cacheLinearMetadataFromMessages} from "../services/linearMetadata"
-import type {SlackUser, SlackChannel, ParsedSlackUrl} from "../types/slack"
+import type {ParsedSlackUrl} from "../types/slack"
+import {getOrFetchChannel, getOrFetchMessage, getOrFetchThread, getOrFetchUser} from "../services/slackData"
+import {pickSlackUrlMatchForLine} from "../lib/slackUrl"
 
 export class HoverProvider implements vscode.HoverProvider {
   constructor(
@@ -55,23 +57,17 @@ export class HoverProvider implements vscode.HoverProvider {
   }
 
   private async buildMessageHover(markdown: vscode.MarkdownString, parsed: ParsedSlackUrl): Promise<void> {
-    const cacheKey = `${parsed.channelId}:${parsed.messageTs}`
-    let message = this.cacheManager.getMessage(cacheKey)
-
-    if (!message) {
-      message = await this.slackApi.getMessage(parsed.channelId, parsed.messageTs)
-      this.cacheManager.setMessage(cacheKey, message)
-    }
+    const message = await getOrFetchMessage(this.slackApi, this.cacheManager, parsed.channelId, parsed.messageTs)
 
     // Channel name
     if (this.settingsManager.hover.showChannel) {
-      const channel = await this.fetchChannel(parsed.channelId)
+      const channel = await getOrFetchChannel(this.slackApi, this.cacheManager, parsed.channelId)
       const channelIcon = channel.isPrivate ? '🔒' : '📧'
       markdown.appendMarkdown(`${channelIcon} **#${channel.name}**\n\n`)
     }
 
     // User name + timestamp
-    const user = await this.fetchUser(message.user)
+    const user = await getOrFetchUser(this.slackApi, this.cacheManager, message.user)
     const relativeTime = formatRelativeTime(new Date(parseFloat(message.ts) * 1000))
     markdown.appendMarkdown(`**@${user.displayName}** (${relativeTime}):\n\n`)
 
@@ -113,7 +109,7 @@ export class HoverProvider implements vscode.HoverProvider {
     // (Messages that are thread parents have replies even if accessed without ?thread_ts parameter)
     if (!linearIssueId) {
       try {
-        const thread = await this.slackApi.getThread(parsed.channelId, message.ts)
+        const thread = await getOrFetchThread(this.slackApi, this.cacheManager, parsed.channelId, message.ts)
         if (thread.replies.length > 0) {
           allMessages.push(...thread.replies)
           // Check each reply for Linear Asks bot
@@ -168,13 +164,7 @@ export class HoverProvider implements vscode.HoverProvider {
   }
 
   private async buildThreadHover(markdown: vscode.MarkdownString, parsed: ParsedSlackUrl): Promise<void> {
-    const cacheKey = parsed.threadTs!
-    let thread = this.cacheManager.getThread(cacheKey)
-
-    if (!thread) {
-      thread = await this.slackApi.getThread(parsed.channelId, parsed.threadTs!)
-      this.cacheManager.setThread(cacheKey, thread)
-    }
+    const thread = await getOrFetchThread(this.slackApi, this.cacheManager, parsed.channelId, parsed.threadTs!)
 
     const {parent, replies} = thread
 
@@ -184,13 +174,13 @@ export class HoverProvider implements vscode.HoverProvider {
 
     // Channel name
     if (this.settingsManager.hover.showChannel) {
-      const channel = await this.fetchChannel(parsed.channelId)
+      const channel = await getOrFetchChannel(this.slackApi, this.cacheManager, parsed.channelId)
       const channelIcon = channel.isPrivate ? '🔒' : '📧'
       markdown.appendMarkdown(`🧵 ${channelIcon} **#${channel.name}**\n\n`)
     }
 
     // User name + timestamp for the specific message
-    const user = await this.fetchUser(targetMessage.user)
+    const user = await getOrFetchUser(this.slackApi, this.cacheManager, targetMessage.user)
     const relativeTime = formatRelativeTime(new Date(parseFloat(targetMessage.ts) * 1000))
     const isReply = targetMessage.ts !== parent.ts
     const label = isReply ? `Thread reply by` : `Thread started by`
@@ -280,37 +270,6 @@ export class HoverProvider implements vscode.HoverProvider {
 
   private findSlackUrlAtPosition(document: vscode.TextDocument, position: vscode.Position): ParsedSlackUrl | null {
     const line = document.lineAt(position.line)
-    const globalRegex = new RegExp(this.slackApi.SLACK_URL_REGEX.source, 'g')
-    const matches = line.text.matchAll(globalRegex)
-
-    for (const match of matches) {
-      const startPos = line.range.start.translate(0, match.index!)
-      const endPos = startPos.translate(0, match[0].length)
-      const range = new vscode.Range(startPos, endPos)
-
-      if (range.contains(position)) {
-        return this.slackApi.parseSlackUrl(match[0])
-      }
-    }
-
-    return null
-  }
-
-  private async fetchUser(userId: string): Promise<SlackUser> {
-    let user = this.cacheManager.getUser(userId)
-    if (!user) {
-      user = await this.slackApi.getUser(userId)
-      this.cacheManager.setUser(userId, user)
-    }
-    return user
-  }
-
-  private async fetchChannel(channelId: string): Promise<SlackChannel> {
-    let channel = this.cacheManager.getChannel(channelId)
-    if (!channel) {
-      channel = await this.slackApi.getChannel(channelId)
-      this.cacheManager.setChannel(channelId, channel)
-    }
-    return channel
+    return pickSlackUrlMatchForLine(this.slackApi, line, position)?.parsed ?? null
   }
 }
