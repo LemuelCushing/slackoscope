@@ -1,7 +1,10 @@
+// Setup must be imported FIRST to register mocks before extension activation
+import "./setup"
+
 import * as assert from "assert"
 import * as vscode from "vscode"
 import {closeAllEditors, createTestDocument} from "./testUtils"
-import {SettingsManager} from "../ui/settingsManager"
+import {Settings} from "../vscode"
 
 suite("Settings Behavioral Tests", () => {
   setup(async () => {
@@ -50,7 +53,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("inline.showTime setting controls timestamp display", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("inline.showTime", false, vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -65,7 +68,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("inline.useRelativeTime setting toggles between relative and absolute time", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("inline.useRelativeTime", true, vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -80,7 +83,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("inline.showUser setting controls user name display", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("inline.showUser", true, vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -95,7 +98,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("inline.showChannelName setting controls channel name display", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("inline.showChannelName", true, vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -110,7 +113,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("inline.fontSize setting accepts valid font sizes", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("inline.fontSize", 14, vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -125,7 +128,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("inline.color setting accepts color values", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("inline.color", "rgba(255, 0, 0, 0.8)", vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -140,7 +143,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("inline.fontStyle setting toggles between normal and italic", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("inline.fontStyle", "italic", vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -157,7 +160,7 @@ suite("Settings Behavioral Tests", () => {
   suite("Hover Settings", () => {
     test("hover.showChannel setting controls channel display in hover", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("hover.showChannel", false, vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -172,7 +175,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("hover.showFiles setting controls file attachment display", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("hover.showFiles", false, vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -187,7 +190,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("hover.showFileInfo setting controls file size/type display", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("hover.showFileInfo", false, vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -204,7 +207,7 @@ suite("Settings Behavioral Tests", () => {
   suite("Highlighting Settings", () => {
     test("highlighting.enabled setting controls URL highlighting", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("highlighting.enabled", false, vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -219,7 +222,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("highlighting.todayColor setting accepts color values", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("highlighting.todayColor", "#00ff00", vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -234,7 +237,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("highlighting.oldDays setting accepts number of days", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("highlighting.oldDays", 14, vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -249,7 +252,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("highlighting.oldColor setting accepts color values", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("highlighting.oldColor", "#ff0000", vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -266,7 +269,7 @@ suite("Settings Behavioral Tests", () => {
   suite("Token Settings", () => {
     test("slackoscope.token setting stores Slack API token", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("token", "xoxb-test-token-123", vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -276,7 +279,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("slackoscope.linearToken setting stores Linear API token", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("linearToken", "lin_api_test123", vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -286,7 +289,7 @@ suite("Settings Behavioral Tests", () => {
 
     test("token settings support 1Password secret references", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("token", "op://vault/slack/token", vscode.ConfigurationTarget.Global)
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -298,7 +301,7 @@ suite("Settings Behavioral Tests", () => {
   suite("Settings Integration", () => {
     test("multiple settings can be changed simultaneously", async () => {
       const config = vscode.workspace.getConfiguration("slackoscope")
-      const settingsManager = new SettingsManager()
+      const settingsManager = new Settings()
 
       await config.update("inline.showTime", false, vscode.ConfigurationTarget.Global)
       await config.update("inline.showUser", true, vscode.ConfigurationTarget.Global)

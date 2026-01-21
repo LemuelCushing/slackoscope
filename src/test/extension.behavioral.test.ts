@@ -1,20 +1,39 @@
+// Setup must be imported FIRST to register mocks before extension activation
+import "./setup"
+
 import * as assert from "assert"
 import * as vscode from "vscode"
 import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
 import {TEST_SLACK_URLS} from "./fixtures"
 
 suite("Slackoscope Extension Behavioral Tests", () => {
-  setup(async () => {
+  // Set tokens once before all tests in this suite
+  suiteSetup(async () => {
     process.env.NODE_ENV = "test"
 
     const config = vscode.workspace.getConfiguration("slackoscope")
     await config.update("token", "test-token-for-testing", vscode.ConfigurationTarget.Global)
+    // Also set Linear token for Linear-related tests (extension will use mock)
+    await config.update("linearToken", "test-linear-token-for-testing", vscode.ConfigurationTarget.Global)
+
+    // Wait for config to be persisted
+    await new Promise(resolve => setTimeout(resolve, 100))
 
     const extension = vscode.extensions.getExtension("LemuelCushing.slackoscope")
     if (extension && !extension.isActive) {
       await extension.activate()
     }
 
+    // Force the extension to reconfigure with the new tokens
+    // (extension may have activated before tokens were set)
+    try {
+      await vscode.commands.executeCommand("slackoscope._forceReconfigure")
+    } catch {
+      // Ignore if command not found (non-test mode)
+    }
+  })
+
+  setup(async () => {
     try {
       await vscode.commands.executeCommand("slackoscope.clearCache")
     } catch {
@@ -26,9 +45,12 @@ suite("Slackoscope Extension Behavioral Tests", () => {
 
   teardown(async () => {
     await closeAllEditors()
+  })
 
+  suiteTeardown(async () => {
     const config = vscode.workspace.getConfiguration("slackoscope")
     await config.update("token", undefined, vscode.ConfigurationTarget.Global)
+    await config.update("linearToken", undefined, vscode.ConfigurationTarget.Global)
   })
 
   suite("Extension Activation", () => {
@@ -60,7 +82,8 @@ suite("Slackoscope Extension Behavioral Tests", () => {
       const hovers = await getHoverContent(doc, urlPosition)
       const hoverText = extractHoverText(hovers)
 
-      assert.ok(hoverText.includes("@Test User"), "Should display user name with @ prefix")
+      // Fixture user U1234567890 has displayName "Alice"
+      assert.ok(hoverText.includes("@Alice"), "Should display user name with @ prefix")
     })
 
     test("should display message content in hover tooltip", async () => {
@@ -72,7 +95,8 @@ suite("Slackoscope Extension Behavioral Tests", () => {
       const hoverText = extractHoverText(hovers)
 
       assert.ok(hoverText.length > 50, "Should display message content")
-      assert.ok(hoverText.includes("Mock Slack message content"), "Should contain actual message text")
+      // Fixture message TEST_MESSAGES.simple has text "This is a simple test message"
+      assert.ok(hoverText.includes("simple test message"), "Should contain actual message text")
     })
 
     test("should include insert comment action in hover", async () => {
@@ -111,7 +135,8 @@ suite("Slackoscope Extension Behavioral Tests", () => {
       const hovers = await getHoverContent(doc, urlPosition)
       const hoverText = extractHoverText(hovers)
 
-      assert.ok(!hoverText.includes("@Test User"), "Should not show Slackoscope hover for GitHub URLs")
+      // Should not contain any Slack-specific content
+      assert.ok(!hoverText.includes("@Alice") && !hoverText.includes("Slack"), "Should not show Slackoscope hover for GitHub URLs")
     })
   })
 
@@ -243,6 +268,38 @@ suite("Slackoscope Extension Behavioral Tests", () => {
       const hoverText = extractHoverText(hovers)
 
       assert.ok(hoverText.length > 0, "Should display thread parent content")
+    })
+
+    test("should detect Linear issues in thread replies", async () => {
+      // Linear token is set in suite setup, so extension should have LinearApi initialized
+      // Use threadReply URL which points to a thread that has a Linear bot reply
+      const threadUrl = TEST_SLACK_URLS.threadReply
+      const {doc} = await createTestDocument(`${threadUrl}\n`)
+
+      const urlPosition = doc.positionAt(20)
+      const hovers = await getHoverContent(doc, urlPosition)
+      const hoverText = extractHoverText(hovers)
+
+      // Should display Linear issue information from the thread
+      // The thread fixture has a Linear Asks bot reply with TST-10291
+      assert.ok(hoverText.includes("Linear") || hoverText.includes("TST-10291"), "Should display Linear issue from thread")
+    })
+
+    test("should show Post to Linear action for thread URLs with Linear issues", async () => {
+      // Linear token is set in suite setup, so extension should have LinearApi initialized
+      const threadUrl = TEST_SLACK_URLS.threadReply
+      const {doc} = await createTestDocument(`${threadUrl}\n`)
+
+      const urlPosition = doc.positionAt(20)
+      const hovers = await getHoverContent(doc, urlPosition)
+      const hoverText = extractHoverText(hovers)
+
+      // Should include Post to Linear command link
+      // The thread fixture has a Linear Asks bot reply with TST-10291
+      assert.ok(
+        hoverText.includes("Post") && (hoverText.includes("Linear") || hoverText.includes("TST-10291")),
+        "Should include Post to Linear action"
+      )
     })
   })
 

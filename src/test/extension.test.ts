@@ -1,8 +1,24 @@
+// Setup must be imported FIRST to register mocks before extension activation
+import "./setup"
+
 import * as assert from "assert"
 import * as vscode from "vscode"
-import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText, MockSlackApi} from "./testUtils"
+import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
+import {parseSlackUrl} from "../slack"
 
 suite("Slackoscope Extension E2E Tests", () => {
+  // Global cleanup at end of suite
+  suiteTeardown(async () => {
+    console.log("[TEST] Suite teardown - final cleanup")
+    await closeAllEditors()
+    // Clear any leftover state
+    try {
+      await vscode.commands.executeCommand("slackoscope.clearCache")
+    } catch {
+      // Ignore
+    }
+  })
+
   setup(async () => {
     // Set test environment variable
     process.env.NODE_ENV = "test"
@@ -213,7 +229,8 @@ suite("Slackoscope Extension E2E Tests", () => {
       const hovers = await getHoverContent(doc, urlPosition)
       const hoverText = extractHoverText(hovers)
 
-      assert.ok(hoverText.includes("@Test User"), "Hover should contain user information")
+      // Fixture user U1234567890 has displayName "Alice"
+      assert.ok(hoverText.includes("@Alice"), "Hover should contain user information")
       assert.ok(hoverText.length > 20, "Hover should contain message content")
       assert.ok(
         hoverText.includes("Insert Commented Message") || hoverText.includes("insertCommentedMessage"),
@@ -247,7 +264,8 @@ suite("Slackoscope Extension E2E Tests", () => {
         const hovers = await getHoverContent(doc, position)
         const hoverText = extractHoverText(hovers)
 
-        assert.ok(hoverText.includes("@Test User"), `Should show hover at position ${position.character} in URL`)
+        // Fixture user U1234567890 has displayName "Alice"
+        assert.ok(hoverText.includes("@Alice"), `Should show hover at position ${position.character} in URL`)
       }
     })
   })
@@ -423,8 +441,7 @@ suite("Slackoscope Extension E2E Tests", () => {
   suite("Thread Support", () => {
     test("should detect thread URLs with thread_ts parameter", () => {
       const threadUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456?thread_ts=1234567890.123456"
-      const mockApi = new MockSlackApi()
-      const parsed = mockApi.parseSlackUrl(threadUrl)
+      const parsed = parseSlackUrl(threadUrl)
 
       assert.ok(parsed, "Should parse thread URL")
       assert.ok(parsed?.threadTs, "Should extract thread_ts")

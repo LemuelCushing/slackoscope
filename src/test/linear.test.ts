@@ -1,5 +1,5 @@
 import * as assert from "assert"
-import {findLinearIssues, extractLinearIssueFromMessage} from "../ui/formatting"
+import {extractLinearIssueFromMessage, findLinearIssues} from "../linear"
 
 suite("Linear Integration Tests", () => {
   suite("findLinearIssues", () => {

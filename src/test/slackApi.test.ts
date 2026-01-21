@@ -1,5 +1,5 @@
 import * as assert from "assert"
-import {SLACK_URL_REGEX} from "../api/slackApi"
+import {SLACK_URL_REGEX} from "../slack"
 
 suite("Slack API Unit Tests", () => {
   suite("SLACK_URL_REGEX", () => {
@@ -17,18 +17,25 @@ suite("Slack API Unit Tests", () => {
       })
     })
 
+    test("should extract workspace from URL", () => {
+      const url = "https://workspace.slack.com/archives/C1234ABCD/p1234567890123456"
+      const match = url.match(SLACK_URL_REGEX)
+      assert.ok(match)
+      assert.strictEqual(match[1], "workspace", "Should extract workspace")
+    })
+
     test("should extract channel ID from URL", () => {
       const url = "https://workspace.slack.com/archives/C1234ABCD/p1234567890123456"
       const match = url.match(SLACK_URL_REGEX)
       assert.ok(match)
-      assert.strictEqual(match[1], "C1234ABCD", "Should extract channel ID")
+      assert.strictEqual(match[2], "C1234ABCD", "Should extract channel ID")
     })
 
     test("should extract timestamp from URL", () => {
       const url = "https://workspace.slack.com/archives/C1234ABCD/p1234567890123456"
       const match = url.match(SLACK_URL_REGEX)
       assert.ok(match)
-      assert.strictEqual(match[2], "1234567890123456", "Should extract timestamp")
+      assert.strictEqual(match[3], "1234567890123456", "Should extract timestamp")
     })
 
     test("should not match invalid URLs", () => {
@@ -51,8 +58,10 @@ suite("Slack API Unit Tests", () => {
       const url = "https://workspace.slack.com/archives/C1234ABCD/p1234567890123456?thread_ts=1234567890.123456"
       const match = url.match(SLACK_URL_REGEX)
       assert.ok(match, "Should match URL with query parameters")
-      assert.strictEqual(match[1], "C1234ABCD")
-      assert.strictEqual(match[2], "1234567890123456")
+      assert.strictEqual(match[1], "workspace", "Should extract workspace")
+      assert.strictEqual(match[2], "C1234ABCD", "Should extract channel ID")
+      assert.strictEqual(match[3], "1234567890123456", "Should extract timestamp")
+      assert.strictEqual(match[4], "1234567890.123456", "Should extract thread_ts")
     })
   })
 
