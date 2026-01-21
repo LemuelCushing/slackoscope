@@ -74,6 +74,21 @@ export async function getOrFetchMessagesForUrl(
     return {targetMessage, messages, replyCount: thread.replies.length}
   }
 
+  // Single message URL - fetch the message
   const targetMessage = await getOrFetchMessage(slackApi, cacheManager, parsed.channelId, parsed.messageTs)
-  return {targetMessage, messages: [targetMessage], replyCount: 0}
+  const messages = [targetMessage]
+
+  // Also try to fetch thread replies (message might be a thread parent)
+  // This catches Linear Asks bot replies that aren't in the URL's thread_ts
+  try {
+    const thread = await getOrFetchThread(slackApi, cacheManager, parsed.channelId, targetMessage.ts)
+    if (thread.replies.length > 0) {
+      messages.push(...thread.replies)
+      return {targetMessage, messages, replyCount: thread.replies.length}
+    }
+  } catch {
+    // Not a thread parent or error fetching - that's okay
+  }
+
+  return {targetMessage, messages, replyCount: 0}
 }
