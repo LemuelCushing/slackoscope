@@ -1,27 +1,37 @@
 /**
  * DecorationController - Orchestrates all URL decorations.
  *
- * Two decoration systems:
- * 1. URL Replacement (always on) - replaces channel ID and timestamp with human-readable text
- * 2. Inline Preview (toggled) - shows message content after the URL
+ * Three decoration systems:
+ * 1. URL Replacement (controlled by showChannelName setting) - replaces channel ID and timestamp
+ * 2. Inline Preview (on by default, toggle turns off) - shows message content after the URL
+ * 3. Highlight (controlled by highlighting.enabled setting) - background color based on message age
  */
 
 import * as vscode from "vscode"
-import type {SlackLoader} from "../../slack"
+import type {SlackLoader, SlackMessage} from "../../slack"
 import type {LinearLoader} from "../../linear"
 import type {Settings} from "../config"
 import {SlackUrlOccurrence} from "../editor"
 import {createInlineDecorationType, buildInlineContent, createDecorationOptions} from "../renderers"
 import {formatAbsoluteTime, slackTsToDate} from "../renderers/formatting"
 
+interface FetchResult {
+  occurrence: SlackUrlOccurrence
+  message: SlackMessage
+}
+
 export class DecorationController implements vscode.Disposable {
-  // URL replacement decorations (always on)
+  // URL replacement decorations
   private channelNameDecorationType: vscode.TextEditorDecorationType | null = null
   private timestampDecorationType: vscode.TextEditorDecorationType | null = null
 
-  // Inline preview decorations (on by default, toggle turns off)
+  // Inline preview decorations (on by default)
   private inlineDecorationType: vscode.TextEditorDecorationType | null = null
   private isInlineActive = true
+
+  // Highlight decorations (message age)
+  private todayHighlightType: vscode.TextEditorDecorationType | null = null
+  private oldHighlightType: vscode.TextEditorDecorationType | null = null
 
   private disposables: vscode.Disposable[] = []
   private updateTimeout: NodeJS.Timeout | null = null
@@ -33,6 +43,7 @@ export class DecorationController implements vscode.Disposable {
   ) {
     // Create decoration types
     this.createUrlReplacementTypes()
+    this.createHighlightTypes()
     this.inlineDecorationType = createInlineDecorationType(this.settings.inline)
 
     // Initial update for visible editors
@@ -65,42 +76,42 @@ export class DecorationController implements vscode.Disposable {
 
   /**
    * Toggle inline message preview on/off.
-   * URL replacements are controlled by showChannelName setting.
    */
   async toggle(): Promise<void> {
     this.isInlineActive = !this.isInlineActive
 
     if (this.isInlineActive) {
-      // Turning ON
       this.inlineDecorationType = createInlineDecorationType(this.settings.inline)
       vscode.window.visibleTextEditors.forEach(editor => this.updateDecorations(editor))
     } else {
-      // Turning OFF
       this.clearInlineDecorations()
     }
   }
 
   private createUrlReplacementTypes(): void {
-    // These decoration types hide original text and show replacement via 'before'
-    // Using transparent color + negative letter-spacing hides the original text
+    // Hide original text and show replacement via 'before'
     this.channelNameDecorationType = vscode.window.createTextEditorDecorationType({
       color: "transparent",
       letterSpacing: "-10em",
-      before: {
-        contentText: "",
-        color: "inherit",
-        fontWeight: "normal",
-      },
+      before: {contentText: "", color: "inherit", fontWeight: "normal"},
     })
 
     this.timestampDecorationType = vscode.window.createTextEditorDecorationType({
       color: "transparent",
       letterSpacing: "-10em",
-      before: {
-        contentText: "",
-        color: "inherit",
-        fontWeight: "normal",
-      },
+      before: {contentText: "", color: "inherit", fontWeight: "normal"},
+    })
+  }
+
+  private createHighlightTypes(): void {
+    const hl = this.settings.highlighting
+    this.todayHighlightType = vscode.window.createTextEditorDecorationType({
+      backgroundColor: hl.todayColor,
+      isWholeLine: false,
+    })
+    this.oldHighlightType = vscode.window.createTextEditorDecorationType({
+      backgroundColor: hl.oldColor,
+      isWholeLine: false,
     })
   }
 
@@ -117,17 +128,41 @@ export class DecorationController implements vscode.Disposable {
       return
     }
 
-    // Always update URL replacements (channel name + timestamp)
+    // Fetch all messages first (needed for inline + highlight)
+    const results = await this.fetchMessages(occurrences)
+
+    // URL replacements (channel name + timestamp)
     if (this.settings.inline.showChannelName) {
       await this.applyUrlReplacements(editor, occurrences)
     } else {
       this.clearUrlReplacements(editor)
     }
 
-    // Update inline previews only if active
+    // Inline previews
     if (this.isInlineActive && this.inlineDecorationType) {
-      await this.applyInlinePreviews(editor, occurrences)
+      await this.applyInlinePreviews(editor, results)
     }
+
+    // Highlight decorations
+    if (this.settings.highlighting.enabled) {
+      this.applyHighlights(editor, results)
+    } else {
+      this.clearHighlights(editor)
+    }
+  }
+
+  private async fetchMessages(occurrences: SlackUrlOccurrence[]): Promise<FetchResult[]> {
+    const results = await Promise.all(
+      occurrences.map(async occ => {
+        try {
+          const {target} = await this.slackLoader.getMessagesForUrl(occ.url)
+          return {occurrence: occ, message: target}
+        } catch {
+          return null
+        }
+      })
+    )
+    return results.filter((r): r is FetchResult => r !== null)
   }
 
   private async applyUrlReplacements(
@@ -168,27 +203,21 @@ export class DecorationController implements vscode.Disposable {
     editor.setDecorations(this.timestampDecorationType, timestampDecorations)
   }
 
-  private async applyInlinePreviews(
-    editor: vscode.TextEditor,
-    occurrences: SlackUrlOccurrence[]
-  ): Promise<void> {
+  private async applyInlinePreviews(editor: vscode.TextEditor, results: FetchResult[]): Promise<void> {
     if (!this.inlineDecorationType) return
 
     const decorationOptions = await Promise.all(
-      occurrences.map(async occ => {
+      results.map(async ({occurrence, message}) => {
         try {
-          const {target} = await this.slackLoader.getMessagesForUrl(occ.url)
+          const user = this.settings.inline.showUser
+            ? await this.slackLoader.getUser(message.user)
+            : undefined
 
-          const [user, channel] = await Promise.all([
-            this.settings.inline.showUser ? this.slackLoader.getUser(target.user) : undefined,
-            this.settings.inline.showChannelName ? this.slackLoader.getChannel(occ.url.channelId) : undefined,
-          ])
-
-          const content = buildInlineContent(target, user, channel, this.settings.inline)
-          return createDecorationOptions(occ.range, content)
+          const content = buildInlineContent(message, user, this.settings.inline)
+          return createDecorationOptions(occurrence.range, content)
         } catch (error) {
           console.error("Inline preview error:", error)
-          return createDecorationOptions(occ.range, {text: "⚠️ Error loading"})
+          return createDecorationOptions(occurrence.range, {text: "⚠️ Error loading"})
         }
       })
     )
@@ -196,28 +225,53 @@ export class DecorationController implements vscode.Disposable {
     editor.setDecorations(this.inlineDecorationType, decorationOptions)
   }
 
+  private applyHighlights(editor: vscode.TextEditor, results: FetchResult[]): void {
+    if (!this.todayHighlightType || !this.oldHighlightType) return
+
+    const todayRanges: vscode.Range[] = []
+    const oldRanges: vscode.Range[] = []
+    const now = new Date()
+    const oldDays = this.settings.highlighting.oldDays
+
+    for (const {occurrence, message} of results) {
+      const date = slackTsToDate(message.ts)
+
+      if (date.toDateString() === now.toDateString()) {
+        todayRanges.push(occurrence.range)
+      } else {
+        const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000)
+        if (diffDays >= oldDays) {
+          oldRanges.push(occurrence.range)
+        }
+      }
+    }
+
+    editor.setDecorations(this.todayHighlightType, todayRanges)
+    editor.setDecorations(this.oldHighlightType, oldRanges)
+  }
+
   private clearEditorDecorations(editor: vscode.TextEditor): void {
     this.clearUrlReplacements(editor)
+    this.clearHighlights(editor)
     if (this.inlineDecorationType) {
       editor.setDecorations(this.inlineDecorationType, [])
     }
   }
 
   private clearUrlReplacements(editor: vscode.TextEditor): void {
-    if (this.channelNameDecorationType) {
-      editor.setDecorations(this.channelNameDecorationType, [])
-    }
-    if (this.timestampDecorationType) {
-      editor.setDecorations(this.timestampDecorationType, [])
-    }
+    if (this.channelNameDecorationType) editor.setDecorations(this.channelNameDecorationType, [])
+    if (this.timestampDecorationType) editor.setDecorations(this.timestampDecorationType, [])
+  }
+
+  private clearHighlights(editor: vscode.TextEditor): void {
+    if (this.todayHighlightType) editor.setDecorations(this.todayHighlightType, [])
+    if (this.oldHighlightType) editor.setDecorations(this.oldHighlightType, [])
   }
 
   private clearInlineDecorations(): void {
     this.isInlineActive = false
     vscode.window.visibleTextEditors.forEach(editor => {
-      if (this.inlineDecorationType) {
-        editor.setDecorations(this.inlineDecorationType, [])
-      }
+      if (this.inlineDecorationType) editor.setDecorations(this.inlineDecorationType, [])
     })
     this.inlineDecorationType?.dispose()
     this.inlineDecorationType = null
@@ -228,6 +282,8 @@ export class DecorationController implements vscode.Disposable {
     this.channelNameDecorationType?.dispose()
     this.timestampDecorationType?.dispose()
     this.inlineDecorationType?.dispose()
+    this.todayHighlightType?.dispose()
+    this.oldHighlightType?.dispose()
     this.disposables.forEach(d => d.dispose())
   }
 }

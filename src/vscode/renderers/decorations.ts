@@ -6,7 +6,7 @@
 
 import * as vscode from "vscode"
 import type {InlineSettings} from "../config"
-import type {SlackMessage, SlackUser, SlackChannel} from "../../slack"
+import type {SlackMessage, SlackUser} from "../../slack"
 import {formatRelativeTime, formatAbsoluteTime, slackTsToDate, truncate, collapseLine} from "./formatting"
 
 const MAX_INLINE_LENGTH = 80
@@ -32,38 +32,36 @@ export function createInlineDecorationType(settings: InlineSettings): vscode.Tex
 
 /**
  * Build the inline decoration content for a message.
+ * Format: @Username: "message preview" • 1m ago
+ *
+ * NOTE: Channel name and absolute timestamp are shown via URL replacement decorations,
+ * so we DON'T include them here to avoid duplication.
  */
 export function buildInlineContent(
   message: SlackMessage,
   user: SlackUser | undefined,
-  channel: SlackChannel | undefined,
   settings: InlineSettings
 ): DecorationContent {
-  const parts: string[] = []
+  let text = ""
 
-  // Channel name
-  if (settings.showChannelName && channel) {
-    parts.push(`#${channel.name}`)
-  }
-
-  // User name
+  // User name with colon
   if (settings.showUser && user) {
-    parts.push(`@${user.displayName}`)
+    text += `@${user.displayName}: `
   }
 
-  // Timestamp
+  // Message preview (quoted)
+  const preview = truncate(collapseLine(message.text), MAX_INLINE_LENGTH)
+  text += `"${preview}"`
+
+  // Relative timestamp (only if enabled)
   if (settings.showTime) {
     const date = slackTsToDate(message.ts)
     const time = settings.useRelativeTime ? formatRelativeTime(date) : formatAbsoluteTime(date)
-    parts.push(time)
+    text += ` • ${time}`
   }
 
-  // Message preview
-  const preview = truncate(collapseLine(message.text), MAX_INLINE_LENGTH)
-  parts.push(`"${preview}"`)
-
   return {
-    text: parts.join(" · "),
+    text,
     hoverMessage: message.text,
   }
 }
