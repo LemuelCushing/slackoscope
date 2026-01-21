@@ -1,9 +1,10 @@
 ---
 id: task-1
 title: Linear integration should work on thread urls too
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-20 23:50'
+updated_date: '2026-01-21 12:46'
 labels:
   - linear
   - gh-issue-8

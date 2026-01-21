@@ -1,9 +1,10 @@
 ---
 id: task-9
 title: Posting to linear should be available through Quick Fix (Cmd+.) menu
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-20 23:51'
+updated_date: '2026-01-21 12:46'
 labels:
   - linear
   - ux
