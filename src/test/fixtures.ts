@@ -1,5 +1,5 @@
-import type {SlackMessage, SlackUser, SlackChannel, SlackFile} from "../types/slack"
-import type {LinearIssue} from "../types/linear"
+import type {SlackMessage, SlackUser, SlackChannel, SlackFile} from "../slack"
+import type {LinearIssue} from "../linear"
 
 /**
  * Test fixtures for realistic mock data
@@ -163,7 +163,9 @@ export const TEST_LINEAR_ISSUES: Record<string, LinearIssue> = {
     title: "Implement new feature",
     url: "https://linear.app/company/issue/ENG-1234",
     state: {
+      id: "state-1",
       name: "In Progress",
+      color: "#f39c12",
       type: "started"
     }
   },
@@ -173,7 +175,9 @@ export const TEST_LINEAR_ISSUES: Record<string, LinearIssue> = {
     title: "Fix bug in test suite",
     url: "https://linear.app/company/issue/TST-10291",
     state: {
+      id: "state-2",
       name: "Done",
+      color: "#27ae60",
       type: "completed"
     }
   },
@@ -183,7 +187,9 @@ export const TEST_LINEAR_ISSUES: Record<string, LinearIssue> = {
     title: "Update documentation",
     url: "https://linear.app/company/issue/PROJ-555",
     state: {
+      id: "state-3",
       name: "Todo",
+      color: "#3498db",
       type: "unstarted"
     }
   }

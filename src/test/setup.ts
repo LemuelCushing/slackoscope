@@ -6,7 +6,7 @@
  */
 
 import {registerTestMocks, clearTestMocks} from "./testRegistry"
-import {MockSlackApi, MockLinearApi} from "./mocks"
+import {MockSlackClient, MockLinearClient} from "./mocks"
 
 /**
  * Initialize test environment with mocks
@@ -14,8 +14,8 @@ import {MockSlackApi, MockLinearApi} from "./mocks"
 export function setupTestMocks(): void {
   console.log("[TEST SETUP] Registering test mocks...")
   registerTestMocks({
-    createSlackApi: () => new MockSlackApi(),
-    createLinearApi: () => new MockLinearApi()
+    createSlackClient: () => new MockSlackClient(),
+    createLinearClient: () => new MockLinearClient()
   })
   console.log("[TEST SETUP] Mocks registered")
 }

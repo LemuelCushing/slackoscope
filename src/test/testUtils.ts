@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import type {SlackFile} from "../types/slack"
+import type {SlackFile} from "../slack"
 
 /**
  * Create a mock SlackFile for testing

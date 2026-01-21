@@ -5,12 +5,12 @@
  * activates, without needing dynamic imports or bundling test code.
  */
 
-import type {ISlackApi} from "../api/slackApi"
-import type {ILinearApi} from "../api/linearApi"
+import type {ISlackClient} from "../slack"
+import type {ILinearClient} from "../linear"
 
-export type ApiFactoryType = {
-  createSlackApi: (token: string) => ISlackApi
-  createLinearApi: (token: string) => ILinearApi
+export type ClientFactoryType = {
+  createSlackClient: (token: string) => ISlackClient
+  createLinearClient: (token: string) => ILinearClient
 }
 
 /**
@@ -19,7 +19,7 @@ export type ApiFactoryType = {
 const REGISTRY_KEY = "__SLACKOSCOPE_TEST_REGISTRY__"
 
 interface TestRegistry {
-  apiFactory?: ApiFactoryType
+  clientFactory?: ClientFactoryType
 }
 
 function getRegistry(): TestRegistry {
@@ -31,18 +31,18 @@ function getRegistry(): TestRegistry {
 }
 
 /**
- * Register mock API factory for tests.
+ * Register mock client factory for tests.
  * Call this before extension activation.
  */
-export function registerTestMocks(factory: ApiFactoryType): void {
-  getRegistry().apiFactory = factory
+export function registerTestMocks(factory: ClientFactoryType): void {
+  getRegistry().clientFactory = factory
 }
 
 /**
  * Get registered mock factory, or undefined if not in test mode
  */
-export function getTestMocks(): ApiFactoryType | undefined {
-  return getRegistry().apiFactory
+export function getTestMocks(): ClientFactoryType | undefined {
+  return getRegistry().clientFactory
 }
 
 /**
