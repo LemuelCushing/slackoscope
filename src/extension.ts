@@ -1,127 +1,155 @@
+/**
+ * Slackoscope Extension - Composition Root
+ *
+ * This file wires everything together. It:
+ * - Creates instances
+ * - Registers providers and commands
+ * - Handles configuration changes
+ *
+ * Business logic lives elsewhere. This is pure wiring.
+ */
+
 import * as vscode from "vscode"
-import {SlackApi, type ISlackApi} from "./api/slackApi"
-import {LinearApi, type ILinearApi} from "./api/linearApi"
+import {SlackClient, SlackStore, SlackLoader, type ISlackClient} from "./slack"
+import {LinearClient, LinearStore, LinearLoader, type ILinearClient} from "./linear"
+import {Settings, HoverProvider, CodeActionProvider, DecorationController, registerCommands} from "./vscode"
+
+// 1Password integration (optional)
 import {OnePasswordApi} from "./api/onePasswordApi"
-import {CacheManager} from "./cache/cacheManager"
-import {SettingsManager, type SettingsChangeEvent} from "./ui/settingsManager"
-import {HoverProvider} from "./providers/hoverProvider"
-import {DecorationProvider} from "./providers/decorationProvider"
-import {CodeActionProvider} from "./providers/codeActionProvider"
-import {registerCommands} from "./commands"
+
+// Test registry for mock injection
 import {getTestMocks} from "./test/testRegistry"
 
 /**
- * Factory functions for creating API instances - mainly to allow mocking in tests
+ * Factory functions for creating clients.
+ * Can be swapped with mocks in tests.
  */
-export const apiFactory = {
-  createSlackApi: (token: string): ISlackApi => new SlackApi(token),
-  createLinearApi: (token: string): ILinearApi => new LinearApi(token)
+export const clientFactory = {
+  createSlackClient: (token: string): ISlackClient => new SlackClient(token),
+  createLinearClient: (token: string): ILinearClient => new LinearClient(token),
 }
 
 /**
- * Helper class for managing disposable resources
+ * Extension state container.
  */
-class Disposer implements vscode.Disposable {
-  private readonly items: vscode.Disposable[] = []
+class Slackoscope implements vscode.Disposable {
+  // Stores (caching)
+  private readonly slackStore = new SlackStore()
+  private readonly linearStore = new LinearStore()
 
-  add<T extends vscode.Disposable>(...ds: T[]): T[] {
-    this.items.push(...ds)
-    return ds
-  }
+  // Settings
+  private readonly settings = new Settings()
 
-  dispose(): void {
-    this.items.splice(0).forEach(d => d.dispose())
-  }
-}
+  // Clients (HTTP)
+  private slackClient!: ISlackClient
+  private linearClient: ILinearClient | null = null
 
-/**
- * Helper class for serializing async operations - in case multiple reconfigurations are triggered rapidly
- */
-class AsyncLock {
-  private pending: Promise<void> = Promise.resolve()
+  // Loaders (fetch-or-cache)
+  private slackLoader!: SlackLoader
+  private linearLoader!: LinearLoader
 
-  run<T>(fn: () => Promise<T>): Promise<T> {
-    const next = this.pending.then(fn, fn)
-    this.pending = next.finally(() => undefined) as Promise<void>
-    return next
-  }
-}
+  // VS Code integrations
+  private hoverProvider!: HoverProvider
+  private codeActionProvider!: CodeActionProvider
+  private decorationController!: DecorationController
 
-/**
- * Type definitions for configuration phases
- */
-type Tokens = {slackToken?: string; linearToken?: string}
-type Apis = {slack: ISlackApi; linear: ILinearApi | null}
-
-class SlackoscopeExtension implements vscode.Disposable {
-  private slackApi!: ISlackApi
-  private linearApi: ILinearApi | null = null
-
-  private readonly cache = new CacheManager()
-  private readonly settings = new SettingsManager()
+  // Utilities
   private readonly onePassword = new OnePasswordApi()
-
-  private hover!: HoverProvider
-  private decoration!: DecorationProvider
-  private codeActions!: CodeActionProvider
-
-  private readonly disposer = new Disposer()
-  private readonly reconfigLock = new AsyncLock()
   private has1Password = false
   private readonly isTestMode: boolean
-  private providersInitialized = false
+  private readonly factory: typeof clientFactory
 
-  constructor(
-    private readonly context: vscode.ExtensionContext,
-    private readonly factory: typeof apiFactory
-  ) {
+  private disposables: vscode.Disposable[] = []
+
+  constructor(private readonly context: vscode.ExtensionContext, factory: typeof clientFactory) {
     this.isTestMode = process.env.NODE_ENV === "test" || context.extensionMode === vscode.ExtensionMode.Test
+    this.factory = factory
   }
 
-  async init(): Promise<void> {
-    await this.initSecrets()
-    await this.reconfigureFromSettings()
+  async activate(): Promise<void> {
+    // Check for 1Password
+    if (!this.isTestMode) {
+      this.has1Password = await this.onePassword.isAvailable()
+    }
 
-    this.hover = new HoverProvider(this.slackApi, this.cache, this.settings, this.linearApi)
-    this.decoration = new DecorationProvider(this.slackApi, this.cache, this.settings, this.linearApi)
-    this.codeActions = new CodeActionProvider(this.slackApi, this.cache, this.linearApi)
-    this.providersInitialized = true
+    // Build initial configuration
+    await this.buildClients()
 
-    this.disposer.add(
-      vscode.languages.registerHoverProvider("*", this.hover),
-      vscode.languages.registerCodeActionsProvider("*", this.codeActions, {
-        providedCodeActionKinds: [vscode.CodeActionKind.RefactorInline]
-      }),
-      this.settings.onDidChange(event => this.handleSettingsChange(event))
+    // Create loaders
+    this.slackLoader = new SlackLoader(this.slackClient, this.slackStore)
+    this.linearLoader = new LinearLoader(this.linearClient, this.linearStore)
+
+    // Create VS Code integrations
+    this.hoverProvider = new HoverProvider(this.slackLoader, this.linearLoader, this.settings)
+    this.codeActionProvider = new CodeActionProvider(this.slackLoader, this.linearLoader)
+    this.decorationController = new DecorationController(this.slackLoader, this.linearLoader, this.settings)
+
+    // Register providers
+    this.disposables.push(
+      vscode.languages.registerHoverProvider("*", this.hoverProvider),
+      vscode.languages.registerCodeActionsProvider("*", this.codeActionProvider, {
+        providedCodeActionKinds: CodeActionProvider.providedCodeActionKinds,
+      })
     )
 
+    // Register commands
     registerCommands(this.context, {
-      slackApi: this.slackApi,
-      linearApi: this.linearApi,
-      cacheManager: this.cache,
-      settingsManager: this.settings,
-      decorationProvider: this.decoration
+      slackClient: this.slackClient,
+      slackStore: this.slackStore,
+      slackLoader: this.slackLoader,
+      linearClient: this.linearClient,
+      linearStore: this.linearStore,
+      linearLoader: this.linearLoader,
+      decorationController: this.decorationController,
     })
 
-    // Register test-only command for forcing reconfiguration
+    // Subscribe to settings changes
+    this.disposables.push(
+      this.settings.onDidChange(async event => {
+        if (event.tokensChanged) {
+          await this.reconfigure()
+        }
+      })
+    )
+
+    // Test-only reconfigure command
     if (this.isTestMode) {
       this.context.subscriptions.push(
-        vscode.commands.registerCommand("slackoscope._forceReconfigure", async () => {
-          await this.reconfigureFromSettings()
-        })
+        vscode.commands.registerCommand("slackoscope._forceReconfigure", () => this.reconfigure())
       )
     }
 
     console.log("Slackoscope activated successfully")
   }
 
-  private async initSecrets(): Promise<void> {
-    if (this.isTestMode) return
+  private async buildClients(): Promise<void> {
+    const slackToken = await this.resolveToken(this.settings.slackToken)
+    const linearToken = await this.resolveToken(this.settings.linearToken)
 
-    this.has1Password = await this.onePassword.isAvailable()
-    if (!this.has1Password) {
-      console.warn("1Password CLI not available, using plain text tokens")
+    this.slackClient = this.factory.createSlackClient(slackToken || "")
+    this.linearClient = linearToken ? this.factory.createLinearClient(linearToken) : null
+
+    if (!slackToken && !this.isTestMode) {
+      vscode.window.showWarningMessage(
+        "Slackoscope: Slack token not configured. Please set slackoscope.token in your VS Code settings."
+      )
     }
+  }
+
+  private async reconfigure(): Promise<void> {
+    await this.buildClients()
+
+    // Update loaders with new clients
+    this.slackLoader = new SlackLoader(this.slackClient, this.slackStore)
+    this.linearLoader = new LinearLoader(this.linearClient, this.linearStore)
+
+    // Update providers
+    this.hoverProvider.updateSlackLoader(this.slackLoader)
+    this.hoverProvider.updateLinearLoader(this.linearLoader)
+    this.codeActionProvider.updateSlackLoader(this.slackLoader)
+    this.codeActionProvider.updateLinearLoader(this.linearLoader)
+    this.decorationController.updateSlackLoader(this.slackLoader)
+    this.decorationController.updateLinearLoader(this.linearLoader)
   }
 
   private async resolveToken(raw: string | undefined): Promise<string | undefined> {
@@ -136,112 +164,24 @@ class SlackoscopeExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Handle settings changes with selective refresh based on what changed
-   */
-  private async handleSettingsChange(event: SettingsChangeEvent): Promise<void> {
-    if (event.tokensChanged) {
-      // Tokens changed - rebuild APIs and refresh providers
-      await this.reconfigureFromSettings()
-    }
-    // Display settings changed - providers will automatically pick up new settings
-    // from SettingsManager on next access, no explicit refresh needed
-  }
-
-  /**
-   * Load and resolve tokens from settings
-   */
-  private async loadTokens(): Promise<Tokens> {
-    const slackToken = await this.resolveToken(this.settings.slackToken)
-    const linearToken = await this.resolveToken(this.settings.linearToken)
-    return {slackToken, linearToken}
-  }
-
-  /**
-   * Build API instances from tokens
-   */
-  private buildApis({slackToken, linearToken}: Tokens): Apis {
-    const slack = this.factory.createSlackApi(slackToken ?? "")
-    const linear = linearToken ? this.factory.createLinearApi(linearToken) : null
-
-    if (!slackToken && !this.isTestMode) {
-      vscode.window.showWarningMessage(
-        "Slackoscope: Slack token not configured. Please set slackoscope.token in your VS Code settings to enable Slack features."
-      )
-    }
-
-    return {slack, linear}
-  }
-
-  /**
-   * Apply new API instances to extension state
-   */
-  private applyApis(apis: Apis): void {
-    this.slackApi = apis.slack
-    this.linearApi = apis.linear
-  }
-
-  /**
-   * Refresh existing providers with new API instances (only if initialized)
-   */
-  private refreshProviders(): void {
-    if (!this.providersInitialized) return
-
-    this.hover.updateApi(this.slackApi)
-    this.decoration.updateApi(this.slackApi)
-    this.codeActions.updateApi(this.slackApi)
-    this.hover.updateLinearApi(this.linearApi)
-    this.decoration.updateLinearApi(this.linearApi)
-    this.codeActions.updateLinearApi(this.linearApi)
-  }
-
-  /**
-   * Reconfigure extension from settings (serialized via AsyncLock)
-   */
-  private async reconfigureFromSettings(): Promise<void> {
-    return this.reconfigLock.run(async () => {
-      const tokens = await this.loadTokens()
-      const apis = this.buildApis(tokens)
-      this.applyApis(apis)
-      this.refreshProviders()
-    })
-  }
-
   dispose(): void {
-    this.cache.clearAll()
-    if (this.providersInitialized) {
-      this.decoration.dispose()
-    }
-    this.disposer.dispose()
+    this.slackStore.clear()
+    this.linearStore.clear()
+    this.decorationController.dispose()
+    this.settings.dispose()
+    this.disposables.forEach(d => d.dispose())
   }
 }
 
-/**
- * Build factory for API instances, with test mocks if registered
- */
-function buildFactoryFor(context: vscode.ExtensionContext): typeof apiFactory {
-  const isTestMode = process.env.NODE_ENV === "test" || context.extensionMode === vscode.ExtensionMode.Test
-
-  if (!isTestMode) return apiFactory
-
-  // In test mode, check if mocks were registered via the test registry
-  const testFactory = getTestMocks()
-
-  if (testFactory) {
-    console.log("Slackoscope: Using registered test mocks")
-    return testFactory
-  }
-
-  // Fall back to real APIs if no mocks registered (shouldn't happen in proper tests)
-  console.warn("Slackoscope: Test mode but no mocks registered, using real APIs")
-  return apiFactory
-}
-
-export async function activate(context: vscode.ExtensionContext) {
+// Entry point
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   console.log("Slackoscope is activating...")
 
-  const factory = buildFactoryFor(context)
-  const extension = new SlackoscopeExtension(context, factory)
-  await extension.init()
+  // In test mode, check for registered mock factory
+  const testMocks = getTestMocks()
+  const factory = testMocks ?? clientFactory
+
+  const extension = new Slackoscope(context, factory)
+  await extension.activate()
   context.subscriptions.push(extension)
 }
