@@ -4,9 +4,21 @@ import "./setup"
 import * as assert from "assert"
 import * as vscode from "vscode"
 import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
-import {MockSlackApi} from "./mocks"
+import {parseSlackUrl} from "../slack"
 
 suite("Slackoscope Extension E2E Tests", () => {
+  // Global cleanup at end of suite
+  suiteTeardown(async () => {
+    console.log("[TEST] Suite teardown - final cleanup")
+    await closeAllEditors()
+    // Clear any leftover state
+    try {
+      await vscode.commands.executeCommand("slackoscope.clearCache")
+    } catch {
+      // Ignore
+    }
+  })
+
   setup(async () => {
     // Set test environment variable
     process.env.NODE_ENV = "test"
@@ -429,8 +441,7 @@ suite("Slackoscope Extension E2E Tests", () => {
   suite("Thread Support", () => {
     test("should detect thread URLs with thread_ts parameter", () => {
       const threadUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456?thread_ts=1234567890.123456"
-      const mockApi = new MockSlackApi()
-      const parsed = mockApi.parseSlackUrl(threadUrl)
+      const parsed = parseSlackUrl(threadUrl)
 
       assert.ok(parsed, "Should parse thread URL")
       assert.ok(parsed?.threadTs, "Should extract thread_ts")

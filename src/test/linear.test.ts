@@ -1,5 +1,5 @@
 import * as assert from "assert"
-import {extractLinearIssueFromMessage, findLinearIssues} from "../services/linearMetadata"
+import {extractLinearIssueFromMessage, findLinearIssues} from "../linear"
 
 suite("Linear Integration Tests", () => {
   suite("findLinearIssues", () => {
