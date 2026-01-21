@@ -98,4 +98,18 @@ export class SlackUrlOccurrence {
     // Skip the leading "/", keep just "p123..."
     return rangeWithin(this.range, offset + 1, match[0].length - 1)
   }
+
+  /**
+   * Get a range suitable for inline decorations.
+   * Extends past any trailing quote character so decoration appears outside string literals.
+   */
+  inlineDecorationRange(document: vscode.TextDocument): vscode.Range {
+    const line = document.lineAt(this.range.end.line)
+    const charAfter = line.text[this.range.end.character]
+
+    if (charAfter === '"' || charAfter === "'") {
+      return new vscode.Range(this.range.start, this.range.end.translate(0, 1))
+    }
+    return this.range
+  }
 }

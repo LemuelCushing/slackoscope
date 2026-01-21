@@ -208,16 +208,18 @@ export class DecorationController implements vscode.Disposable {
 
     const decorationOptions = await Promise.all(
       results.map(async ({occurrence, message}) => {
+        // Use inlineDecorationRange to position after any trailing quotes
+        const range = occurrence.inlineDecorationRange(editor.document)
         try {
           const user = this.settings.inline.showUser
             ? await this.slackLoader.getUser(message.user)
             : undefined
 
           const content = buildInlineContent(message, user, this.settings.inline)
-          return createDecorationOptions(occurrence.range, content)
+          return createDecorationOptions(range, content)
         } catch (error) {
           console.error("Inline preview error:", error)
-          return createDecorationOptions(occurrence.range, {text: "⚠️ Error loading"})
+          return createDecorationOptions(range, {text: "⚠️ Error loading"})
         }
       })
     )
