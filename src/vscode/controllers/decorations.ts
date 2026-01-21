@@ -19,9 +19,9 @@ export class DecorationController implements vscode.Disposable {
   private channelNameDecorationType: vscode.TextEditorDecorationType | null = null
   private timestampDecorationType: vscode.TextEditorDecorationType | null = null
 
-  // Inline preview decorations (toggled)
+  // Inline preview decorations (on by default, toggle turns off)
   private inlineDecorationType: vscode.TextEditorDecorationType | null = null
-  private isInlineActive = false
+  private isInlineActive = true
 
   private disposables: vscode.Disposable[] = []
   private updateTimeout: NodeJS.Timeout | null = null
@@ -31,8 +31,9 @@ export class DecorationController implements vscode.Disposable {
     private linearLoader: LinearLoader,
     private settings: Settings
   ) {
-    // Create URL replacement decoration types
+    // Create decoration types
     this.createUrlReplacementTypes()
+    this.inlineDecorationType = createInlineDecorationType(this.settings.inline)
 
     // Initial update for visible editors
     vscode.window.visibleTextEditors.forEach(editor => this.updateDecorations(editor))
@@ -64,15 +65,18 @@ export class DecorationController implements vscode.Disposable {
 
   /**
    * Toggle inline message preview on/off.
-   * URL replacements remain always-on.
+   * URL replacements are controlled by showChannelName setting.
    */
   async toggle(): Promise<void> {
+    this.isInlineActive = !this.isInlineActive
+
     if (this.isInlineActive) {
-      this.clearInlineDecorations()
-    } else {
-      this.isInlineActive = true
+      // Turning ON
       this.inlineDecorationType = createInlineDecorationType(this.settings.inline)
       vscode.window.visibleTextEditors.forEach(editor => this.updateDecorations(editor))
+    } else {
+      // Turning OFF
+      this.clearInlineDecorations()
     }
   }
 
