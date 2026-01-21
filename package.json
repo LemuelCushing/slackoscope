@@ -7,7 +7,7 @@
   },
   "icon": "logo_gemini.png",
   "description": "Take a peek at slack msgs from inside your code. For those with no short term memory",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "engines": {
     "vscode": "^1.91.0"
   },
@@ -165,6 +165,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.7",
     "@types/node": "22.x",
     "@types/vscode": "^1.91.0",
@@ -173,6 +174,7 @@
     "@vscode/test-cli": "^0.0.9",
     "@vscode/test-electron": "^2.4.0",
     "@vscode/vsce": "^3.4.2",
+    "chai": "^6.2.2",
     "esbuild": "^0.27.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^10.1.5",

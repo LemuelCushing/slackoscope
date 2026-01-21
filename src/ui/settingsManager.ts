@@ -70,25 +70,29 @@ export class SettingsManager {
   onDidChange(callback: (event: SettingsChangeEvent) => void): vscode.Disposable {
     return vscode.workspace.onDidChangeConfiguration((e: vscode.ConfigurationChangeEvent) => {
       if (e.affectsConfiguration("slackoscope")) {
-        const oldTokens = this.previousTokens
-        this.refresh()
+        // Defer the refresh to ensure config is fully persisted
+        // VS Code fires the event before the update() promise resolves
+        setTimeout(() => {
+          const oldTokens = this.previousTokens
+          this.refresh()
 
-        // Detect which categories changed
-        const tokensChanged =
-          oldTokens.slack !== this.slackToken || oldTokens.linear !== this.linearToken
+          // Detect which categories changed
+          const tokensChanged =
+            oldTokens.slack !== this.slackToken || oldTokens.linear !== this.linearToken
 
-        const displayChanged =
-          e.affectsConfiguration("slackoscope.inline") ||
-          e.affectsConfiguration("slackoscope.hover") ||
-          e.affectsConfiguration("slackoscope.highlighting")
+          const displayChanged =
+            e.affectsConfiguration("slackoscope.inline") ||
+            e.affectsConfiguration("slackoscope.hover") ||
+            e.affectsConfiguration("slackoscope.highlighting")
 
-        // Update tracked tokens
-        this.previousTokens = {
-          slack: this.slackToken,
-          linear: this.linearToken
-        }
+          // Update tracked tokens
+          this.previousTokens = {
+            slack: this.slackToken,
+            linear: this.linearToken
+          }
 
-        callback({tokensChanged, displayChanged})
+          callback({tokensChanged, displayChanged})
+        }, 0)
       }
     })
   }

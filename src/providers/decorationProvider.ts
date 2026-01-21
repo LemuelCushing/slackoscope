@@ -155,7 +155,7 @@ export class DecorationProvider {
         )
 
         // Cache Linear metadata for this URL (we already have the messages)
-        await cacheLinearMetadataFromMessages(slackUrl.fullUrl, messages, this.linearApi, this.cacheManager)
+        await cacheLinearMetadataFromMessages(parsed, messages, this.linearApi, this.cacheManager)
 
         // Build inline text
         let inlineText = ''

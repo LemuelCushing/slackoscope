@@ -2,8 +2,8 @@ import * as vscode from "vscode"
 import type {ISlackApi} from "../api/slackApi"
 import type {ILinearApi} from "../api/linearApi"
 import type {CacheManager} from "../cache/cacheManager"
-import {getOrFetchUrlMetadata, type LinearUrlMetadata} from "../services/linearMetadata"
-import {pickSlackUrlMatchForLine} from "../lib/slackUrl"
+import {getOrFetchLinearMetadata, type LinearUrlMetadata} from "../services/linearMetadata"
+import {SlackUrlMatch} from "../lib/slackUrl"
 
 export class CodeActionProvider implements vscode.CodeActionProvider {
   constructor(
@@ -26,7 +26,7 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
   ): Promise<vscode.CodeAction[]> {
     const position = range.start
     const line = document.lineAt(position.line)
-    const url = pickSlackUrlMatchForLine(this.slackApi, line, position)
+    const url = SlackUrlMatch.pickForLine(this.slackApi, line, position)
     if (!url) return []
 
     const actions: vscode.CodeAction[] = []
@@ -35,10 +35,10 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
     actions.push(this.createInsertCommentAction(url.fullUrl))
 
     // Ensure URL metadata is cached (will use cache if already populated)
-    const metadata = await getOrFetchUrlMetadata(url.fullUrl, this.slackApi, this.linearApi, this.cacheManager)
+    const metadata = await getOrFetchLinearMetadata(url.parsed, this.slackApi, this.linearApi, this.cacheManager)
 
     // Conditionally show Linear action if issue found
-    if (metadata.linearIssueId && metadata.linearIdentifier) {
+    if (metadata?.linearIssueId && metadata?.linearIdentifier) {
       actions.push(this.createPostToLinearAction(url.fullUrl, metadata))
     }
 

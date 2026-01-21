@@ -8,6 +8,7 @@ import {HoverProvider} from "./providers/hoverProvider"
 import {DecorationProvider} from "./providers/decorationProvider"
 import {CodeActionProvider} from "./providers/codeActionProvider"
 import {registerCommands} from "./commands"
+import {getTestMocks} from "./test/testRegistry"
 
 /**
  * Factory functions for creating API instances - mainly to allow mocking in tests
@@ -101,6 +102,15 @@ class SlackoscopeExtension implements vscode.Disposable {
       settingsManager: this.settings,
       decorationProvider: this.decoration
     })
+
+    // Register test-only command for forcing reconfiguration
+    if (this.isTestMode) {
+      this.context.subscriptions.push(
+        vscode.commands.registerCommand("slackoscope._forceReconfigure", async () => {
+          await this.reconfigureFromSettings()
+        })
+      )
+    }
 
     console.log("Slackoscope activated successfully")
   }
@@ -207,24 +217,30 @@ class SlackoscopeExtension implements vscode.Disposable {
 }
 
 /**
- * Build factory for API instances, with test mocks if in test mode
+ * Build factory for API instances, with test mocks if registered
  */
-async function buildFactoryFor(context: vscode.ExtensionContext): Promise<typeof apiFactory> {
+function buildFactoryFor(context: vscode.ExtensionContext): typeof apiFactory {
   const isTestMode = process.env.NODE_ENV === "test" || context.extensionMode === vscode.ExtensionMode.Test
 
   if (!isTestMode) return apiFactory
 
-  const {MockSlackApi, MockLinearApi} = await import("./test/mocks.js")
-  return {
-    createSlackApi: () => new MockSlackApi(),
-    createLinearApi: () => new MockLinearApi()
+  // In test mode, check if mocks were registered via the test registry
+  const testFactory = getTestMocks()
+
+  if (testFactory) {
+    console.log("Slackoscope: Using registered test mocks")
+    return testFactory
   }
+
+  // Fall back to real APIs if no mocks registered (shouldn't happen in proper tests)
+  console.warn("Slackoscope: Test mode but no mocks registered, using real APIs")
+  return apiFactory
 }
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log("Slackoscope is activating...")
 
-  const factory = await buildFactoryFor(context)
+  const factory = buildFactoryFor(context)
   const extension = new SlackoscopeExtension(context, factory)
   await extension.init()
   context.subscriptions.push(extension)

@@ -1,7 +1,7 @@
 import type {ILinearApi} from "../api/linearApi"
 import type {ISlackApi} from "../api/slackApi"
 import type {CacheManager} from "../cache/cacheManager"
-import type {SlackMessage} from "../types/slack"
+import type {ParsedSlackUrl, SlackMessage} from "../types/slack"
 import {getOrFetchMessagesForUrl} from "./slackData"
 
 /**
@@ -14,9 +14,10 @@ export type LinearUrlMetadata = {
 
 /**
  * Regular expressions for detecting Linear issues
+ * Linear issue identifiers require at least 2 uppercase letters (e.g., AB-123, TST-456)
  */
-const LINEAR_ISSUE_REGEX = /\b([A-Z]{1,}-\d+)\b/g
-const LINEAR_URL_REGEX = /linear\.app\/[^/]+\/issue\/([A-Z]{1,}-\d+)/
+const LINEAR_ISSUE_REGEX = /\b([A-Z]{2,}-\d+)\b/g
+const LINEAR_URL_REGEX = /linear\.app\/[^/]+\/issue\/([A-Z]{2,}-\d+)/
 
 /**
  * Find all Linear issue identifiers in text
@@ -65,13 +66,15 @@ export function extractLinearIssueFromMessage(message: {
  * Detect Linear issues from already-fetched messages and cache the result.
  */
 export async function cacheLinearMetadataFromMessages(
-  url: string,
+  slack: ParsedSlackUrl,
   messages: SlackMessage[],
   linearApi: ILinearApi | null,
   cacheManager: CacheManager
 ): Promise<void> {
+  const key = linearMetadataKeyFor(slack)
+
   // Skip if already cached
-  if (cacheManager.getUrlMetadata(url)) {
+  if (cacheManager.getLinearMetadata(key) !== undefined) {
     return
   }
 
@@ -84,7 +87,7 @@ export async function cacheLinearMetadataFromMessages(
 
   if (!linearIdentifier || !linearApi) {
     // No Linear issue found - cache that fact so we don't check again
-    cacheManager.setUrlMetadata(url, {})
+    cacheManager.setLinearMetadata(key, null)
     return
   }
 
@@ -96,16 +99,21 @@ export async function cacheLinearMetadataFromMessages(
       cacheManager.setLinearIssue(linearIdentifier, issue)
     } catch (error) {
       console.error("Failed to fetch Linear issue:", error)
-      cacheManager.setUrlMetadata(url, {})
+      cacheManager.setLinearMetadata(key, null)
       return
     }
   }
 
-  // Cache the URL → Linear association
-  cacheManager.setUrlMetadata(url, {
+  // Cache the Slack message/thread → Linear association
+  cacheManager.setLinearMetadata(key, {
     linearIssueId: issue.id,
     linearIdentifier: issue.identifier
   })
+}
+
+function linearMetadataKeyFor(slack: ParsedSlackUrl): string {
+  const id = slack.threadTs ?? slack.messageTs
+  return `${slack.channelId}:${id}`
 }
 
 /**
@@ -114,29 +122,23 @@ export async function cacheLinearMetadataFromMessages(
  *
  * This is the fallback path - will fetch messages from Slack if needed.
  */
-export async function getOrFetchUrlMetadata(
-  url: string,
+export async function getOrFetchLinearMetadata(
+  slack: ParsedSlackUrl,
   slackApi: ISlackApi,
   linearApi: ILinearApi | null,
   cacheManager: CacheManager
-): Promise<LinearUrlMetadata> {
+): Promise<LinearUrlMetadata | null> {
+  const key = linearMetadataKeyFor(slack)
+
   // Check cache first
-  const cached = cacheManager.getUrlMetadata(url)
+  const cached = cacheManager.getLinearMetadata(key)
   if (cached !== undefined) {
     return cached
   }
 
-  // Need to fetch messages
-  const parsed = slackApi.parseSlackUrl(url)
-  if (!parsed) {
-    cacheManager.setUrlMetadata(url, {})
-    return {}
-  }
+  const {messages} = await getOrFetchMessagesForUrl(slackApi, cacheManager, slack)
 
-  // Fetch thread or message
-  const {messages} = await getOrFetchMessagesForUrl(slackApi, cacheManager, parsed)
+  await cacheLinearMetadataFromMessages(slack, messages, linearApi, cacheManager)
 
-  await cacheLinearMetadataFromMessages(url, messages, linearApi, cacheManager)
-
-  return cacheManager.getUrlMetadata(url) || {}
+  return cacheManager.getLinearMetadata(key) ?? null
 }

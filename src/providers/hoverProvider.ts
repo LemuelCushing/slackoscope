@@ -7,7 +7,7 @@ import {formatRelativeTime} from "../ui/formatting"
 import {extractLinearIssueFromMessage, cacheLinearMetadataFromMessages} from "../services/linearMetadata"
 import type {ParsedSlackUrl} from "../types/slack"
 import {getOrFetchChannel, getOrFetchMessage, getOrFetchThread, getOrFetchUser} from "../services/slackData"
-import {pickSlackUrlMatchForLine} from "../lib/slackUrl"
+import {SlackUrlMatch} from "../lib/slackUrl"
 
 export class HoverProvider implements vscode.HoverProvider {
   constructor(
@@ -145,7 +145,7 @@ export class HoverProvider implements vscode.HoverProvider {
     }
 
     // Cache URL metadata for code actions (we already have the messages)
-    await cacheLinearMetadataFromMessages(parsed.fullUrl, allMessages, this.linearApi, this.cacheManager)
+    await cacheLinearMetadataFromMessages(parsed, allMessages, this.linearApi, this.cacheManager)
 
     // Command links
     markdown.appendMarkdown(
@@ -250,7 +250,7 @@ export class HoverProvider implements vscode.HoverProvider {
     }
 
     // Cache URL metadata for code actions (we already have the messages)
-    await cacheLinearMetadataFromMessages(parsed.fullUrl, allMessages, this.linearApi, this.cacheManager)
+    await cacheLinearMetadataFromMessages(parsed, allMessages, this.linearApi, this.cacheManager)
 
     // Command links - pass the specific message, not the whole thread
     markdown.appendMarkdown(
@@ -270,6 +270,6 @@ export class HoverProvider implements vscode.HoverProvider {
 
   private findSlackUrlAtPosition(document: vscode.TextDocument, position: vscode.Position): ParsedSlackUrl | null {
     const line = document.lineAt(position.line)
-    return pickSlackUrlMatchForLine(this.slackApi, line, position)?.parsed ?? null
+    return SlackUrlMatch.pickForLine(this.slackApi, line, position)?.parsed ?? null
   }
 }

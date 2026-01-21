@@ -1,3 +1,6 @@
+// Setup must be imported FIRST to register mocks before extension activation
+import "./setup"
+
 import * as assert from "assert"
 import * as vscode from "vscode"
 import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
@@ -214,7 +217,8 @@ suite("Slackoscope Extension E2E Tests", () => {
       const hovers = await getHoverContent(doc, urlPosition)
       const hoverText = extractHoverText(hovers)
 
-      assert.ok(hoverText.includes("@Test User"), "Hover should contain user information")
+      // Fixture user U1234567890 has displayName "Alice"
+      assert.ok(hoverText.includes("@Alice"), "Hover should contain user information")
       assert.ok(hoverText.length > 20, "Hover should contain message content")
       assert.ok(
         hoverText.includes("Insert Commented Message") || hoverText.includes("insertCommentedMessage"),
@@ -248,7 +252,8 @@ suite("Slackoscope Extension E2E Tests", () => {
         const hovers = await getHoverContent(doc, position)
         const hoverText = extractHoverText(hovers)
 
-        assert.ok(hoverText.includes("@Test User"), `Should show hover at position ${position.character} in URL`)
+        // Fixture user U1234567890 has displayName "Alice"
+        assert.ok(hoverText.includes("@Alice"), `Should show hover at position ${position.character} in URL`)
       }
     })
   })

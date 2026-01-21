@@ -33,7 +33,7 @@ export class CacheManager {
   private channelCache = new SimpleCache<SlackChannel>()
   private threadCache = new SimpleCache<{parent: SlackMessage; replies: SlackMessage[]}>()
   private linearIssueCache = new SimpleCache<LinearIssue>()
-  private urlMetadataCache = new SimpleCache<LinearUrlMetadata>()
+  private linearMetadataCache = new SimpleCache<LinearUrlMetadata | null>()
 
   private messageKey(channelId: string, ts: string): string {
     return `${channelId}:${ts}`
@@ -84,13 +84,14 @@ export class CacheManager {
     this.linearIssueCache.set(identifier, issue)
   }
 
-  // URL metadata cache (Slack URL → Linear issue association)
-  getUrlMetadata(url: string): LinearUrlMetadata | undefined {
-    return this.urlMetadataCache.get(url)
+  // Linear association cache (Slack message/thread → Linear issue association)
+  // `undefined` means unchecked; `null` means checked and none found.
+  getLinearMetadata(key: string): LinearUrlMetadata | null | undefined {
+    return this.linearMetadataCache.get(key)
   }
 
-  setUrlMetadata(url: string, metadata: LinearUrlMetadata): void {
-    this.urlMetadataCache.set(url, metadata)
+  setLinearMetadata(key: string, metadata: LinearUrlMetadata | null): void {
+    this.linearMetadataCache.set(key, metadata)
   }
 
   // Global operations
@@ -100,7 +101,7 @@ export class CacheManager {
     this.channelCache.clear()
     this.threadCache.clear()
     this.linearIssueCache.clear()
-    this.urlMetadataCache.clear()
+    this.linearMetadataCache.clear()
   }
 
   getStats(): {
@@ -109,7 +110,7 @@ export class CacheManager {
     channels: number
     threads: number
     linearIssues: number
-    urlMetadata: number
+    linearMetadata: number
   } {
     return {
       messages: this.messageCache.size,
@@ -117,7 +118,7 @@ export class CacheManager {
       channels: this.channelCache.size,
       threads: this.threadCache.size,
       linearIssues: this.linearIssueCache.size,
-      urlMetadata: this.urlMetadataCache.size
+      linearMetadata: this.linearMetadataCache.size
     }
   }
 }

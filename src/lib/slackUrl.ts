@@ -39,6 +39,11 @@ export class SlackUrlMatch {
       .filter((m): m is SlackUrlMatch => m !== null)
   }
 
+  static pickForLine(slackApi: ISlackApi, line: vscode.TextLine, position: vscode.Position): SlackUrlMatch | null {
+    const urls = SlackUrlMatch.allInLine(slackApi, line)
+    return urls.find(url => url.contains(position)) ?? (urls.length === 1 ? urls[0] : null)
+  }
+
   get parsed(): ParsedSlackUrl {
     return this.parsedUrl
   }
@@ -83,13 +88,4 @@ export class SlackUrlMatch {
     // Keep the leading "/" visible, replace only the "p123..." part
     return rangeWithin(this.range, startOffset + 1, match[0].length - 1)
   }
-}
-
-export function pickSlackUrlMatchForLine(
-  slackApi: ISlackApi,
-  line: vscode.TextLine,
-  position: vscode.Position
-): SlackUrlMatch | null {
-  const urls = SlackUrlMatch.allInLine(slackApi, line)
-  return urls.find(url => url.contains(position)) ?? (urls.length === 1 ? urls[0] : null)
 }
