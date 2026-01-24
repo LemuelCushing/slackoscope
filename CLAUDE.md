@@ -440,8 +440,14 @@ SLACK_URL_REGEX = /https:\/\/[a-zA-Z0-9-]+\.slack\.com\/archives\/([A-Z0-9]+)\/p
 ```bash
 npm run compile-tests    # Compile tests only
 npm run pretest          # Full build + compile tests
-npm run test             # Run all tests in headless VS Code environment
+npm run test             # Run all tests in headless VS Code (verbose output)
+npm run test:silent      # Run tests with minimal output (CI/background mode)
+npm test -- -l silent    # Run with silent test configuration directly
 ```
+
+**Test configurations** (`.vscode-test.mjs`):
+- `default` - Verbose output with full test names and colored output
+- `silent` - Minimal output with dot reporter, suppresses extension logs via `SILENT_TESTS` env var
 
 **Test files**:
 - `src/test/slackApi.test.ts` - Unit tests for Slack API module
@@ -484,10 +490,62 @@ The extension uses `@vscode/test-cli` which allows fully automated testing:
 ```javascript
 import {defineConfig} from '@vscode/test-cli'
 
-export default defineConfig({
-  files: 'out/test/**/*.test.js'
-})
+export default defineConfig([
+  {
+    label: 'default',
+    files: 'out/test/**/*.test.js',
+    mocha: {ui: 'tdd', color: true, reporter: 'spec'}
+  },
+  {
+    label: 'silent',
+    files: 'out/test/**/*.test.js',
+    env: {SILENT_TESTS: 'true'},
+    mocha: {ui: 'tdd', color: false, reporter: 'dot'}
+  }
+])
 ```
+
+### Silent Testing Mode
+
+**Purpose**: Run tests with minimal output for CI/CD, background testing, or automated workflows
+
+**Features**:
+- Suppresses extension console.log output via `SILENT_TESTS` environment variable
+- Uses Mocha "dot" reporter (shows dots + summary instead of full test names)
+- Filters VS Code internal messages
+- Compilation output optionally suppressed
+
+**Usage**:
+```bash
+# Recommended: Use npm script (filters VS Code messages)
+npm run test:silent
+
+# Or directly with vscode-test
+npm test -- -l silent
+```
+
+**Output comparison**:
+```
+Default (verbose):
+  130+ lines of output
+  - All test names listed
+  - Compilation logs
+  - Extension activation logs
+  - VS Code internal messages
+  ✔ 130 passing (11s)
+
+Silent mode:
+  ~10 lines of output
+  - Dots showing progress
+  - Test summary only
+  ........................................................
+  130 passing (11s)
+```
+
+**Implementation**:
+- `.vscode-test.mjs`: Defines "silent" test configuration with `SILENT_TESTS=true` env var
+- `src/extension.ts`, `src/test/setup.ts`: Check `process.env.SILENT_TESTS` before logging
+- `package.json`: `test:silent` script filters output via grep
 
 ### Writing New Tests
 

@@ -160,9 +160,11 @@
     "compile-tests": "tsc -p tsconfig.test.json",
     "watch-tests": "tsc -p tsconfig.test.json -w",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "pretest:silent": "npm run compile-tests 2>&1 | grep -E '(error|Error)' || true",
     "check-types": "tsc --noEmit",
     "lint": "eslint src --ext ts",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "test:silent": "npm run pretest:silent > /dev/null 2>&1 && vscode-test -l silent 2>&1 | grep -vE '(update#|Extension host|MCP Registry|Settings Sync|Started local)' | grep -v '^$' || true"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",

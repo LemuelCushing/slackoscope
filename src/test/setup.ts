@@ -8,16 +8,19 @@
 import {registerTestMocks, clearTestMocks} from "./testRegistry"
 import {MockSlackClient, MockLinearClient} from "./mocks"
 
+// Helper to check if running in silent mode
+const isSilent = () => process.env.SILENT_TESTS === "true"
+
 /**
  * Initialize test environment with mocks
  */
 export function setupTestMocks(): void {
-  console.log("[TEST SETUP] Registering test mocks...")
+  if (!isSilent()) console.log("[TEST SETUP] Registering test mocks...")
   registerTestMocks({
     createSlackClient: () => new MockSlackClient(),
     createLinearClient: () => new MockLinearClient()
   })
-  console.log("[TEST SETUP] Mocks registered")
+  if (!isSilent()) console.log("[TEST SETUP] Mocks registered")
 }
 
 /**
@@ -28,5 +31,5 @@ export function teardownTestMocks(): void {
 }
 
 // Auto-register mocks when this module is loaded
-console.log("[TEST SETUP] Setup module loaded")
+if (!isSilent()) console.log("[TEST SETUP] Setup module loaded")
 setupTestMocks()

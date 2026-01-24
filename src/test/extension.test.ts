@@ -6,10 +6,13 @@ import * as vscode from "vscode"
 import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
 import {parseSlackUrl} from "../slack"
 
+// Helper to check if running in silent mode
+const isSilent = () => process.env.SILENT_TESTS === "true"
+
 suite("Slackoscope Extension E2E Tests", () => {
   // Global cleanup at end of suite
   suiteTeardown(async () => {
-    console.log("[TEST] Suite teardown - final cleanup")
+    if (!isSilent()) console.log("[TEST] Suite teardown - final cleanup")
     await closeAllEditors()
     // Clear any leftover state
     try {

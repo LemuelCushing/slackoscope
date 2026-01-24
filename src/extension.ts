@@ -119,7 +119,7 @@ class Slackoscope implements vscode.Disposable {
       )
     }
 
-    console.log("Slackoscope activated successfully")
+    if (!isSilent()) console.log("Slackoscope activated successfully")
   }
 
   private async buildClients(): Promise<void> {
@@ -173,9 +173,12 @@ class Slackoscope implements vscode.Disposable {
   }
 }
 
+// Helper to check if running in silent mode
+const isSilent = () => process.env.SILENT_TESTS === "true"
+
 // Entry point
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  console.log("Slackoscope is activating...")
+  if (!isSilent()) console.log("Slackoscope is activating...")
 
   // In test mode, check for registered mock factory
   const testMocks = getTestMocks()
