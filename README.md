@@ -1,170 +1,66 @@
 # Slackoscope
 
-View Slack messages inline in VS Code by hovering over message URLs.
+Slack messages in your code editor, hover or inline or inserted as comments, for those with no short term memory and a dislike for alt-tabbing.
 
-## Features
+𒂷 Now with Linear 𒀱 shoehorned in! 𒉓 
 
-### Core Features
-- **Hover preview**: Hover over Slack URLs to preview message content, threads, and file attachments
-- **Inline display**: Toggle inline message previews next to URLs (customizable position, styling, and content)
-- **Smart comments**: Insert messages as comments with auto-detected language syntax
-- **Thread support**: View full thread conversations with reply counts
-- **Code actions**: Quick action menu (Cmd+.) for inserting messages as comments
+## What it does
+- Hover a Slack message URL to view the message, thread, and files
+- Show inline previews next to URLs (toggle on/off)
+- Insert a message as a language-appropriate comment
+- Optional: post the current file to a Linear issue referenced in the thread (“Post to Linear”)
 
-### Enhancements
-- **Channel names**: Display channel names in hover tooltips
-- **User names**: Show message authors in hover and inline previews
-- **Relative time**: Display timestamps as "5m ago" instead of absolute times
-- **Message age highlighting**: Color-code URLs by message age (today vs old)
-- **File attachments**: View and preview file attachments in hover tooltips
-- **Linear integration**: Detect Linear issues in threads and post files as comments
-- **1Password integration**: Securely load tokens from 1Password CLI
-- **Multi-tier caching**: Minimize API calls with intelligent caching
+## Linear (optional)
+It was kinda purpose built for lazy ass tech-support work, so I got Linear integration in here. It works by spotting the Linear Asks msg and pulling the ticket ref from it. Your milage may vary, but feel free to dig in (The detection lives in `src/linear/detector.ts` - look for `extractLinearIssueFromMessage`) and PR if this can help your day-to-day trudgery.
 
-## Slack Setup
+## Setup
+You need a Slack API token.
 
-You need a Slack API token to use this extension.
-
-### Option 1: User Token (Personal Use)
-
-Use this if you just want to access channels you're already in.
-
+### Option 1: User token (personal use)
 1. Go to https://api.slack.com/apps
-2. Click **Create New App** → **From scratch**
-3. Give it a name (e.g., "Slackoscope") and select your workspace
-4. In the sidebar, click **OAuth & Permissions**
-5. Scroll to **User Token Scopes** and add:
-   - `channels:history` (read public channel messages)
-   - `groups:history` (read private channel messages)
-6. Scroll up and click **Install to Workspace**
-7. Click **Allow**
-8. Copy the **User OAuth Token** (starts with `xoxp-`)
-
-### Option 2: Bot Token (Team Use)
-
-Use this for team installations. Bot must be invited to each channel.
-
-1. Follow steps 1-4 above
-2. Under **Bot Token Scopes** (not User Token Scopes), add:
+2. Create a new app (From scratch) in your workspace
+3. OAuth & Permissions → User Token Scopes:
    - `channels:history`
    - `groups:history`
-   - `im:history` (optional, for DMs)
-   - `mpim:history` (optional, for group DMs)
-3. Click **Install to Workspace** → **Allow**
-4. Copy the **Bot User OAuth Token** (starts with `xoxb-`)
-5. In each Slack channel you want to read, type: `/invite @YourBotName`
+4. Install to Workspace and copy the User OAuth Token (`xoxp-`)
+
+### Option 2: Bot token (team use)
+1. Same steps as above
+2. OAuth & Permissions → Bot Token Scopes:
+   - `channels:history`
+   - `groups:history`
+   - `im:history` (optional, DMs)
+   - `mpim:history` (optional, group DMs)
+3. Install to Workspace and copy the Bot User OAuth Token (`xoxb-`)
+4. Invite the bot to each channel: `/invite @YourBotName`
 
 ### Configure in VS Code
-
-1. Open Settings (`Ctrl+,` or `Cmd+,`)
-2. Search for "slackoscope"
-3. Paste your token into **Slackoscope: Token**
-4. (Optional) Configure Linear token for Linear integration
-5. (Optional) Use 1Password references (e.g., `op://vault/item/field`) for secure token storage
-
-## Configuration
-
-All settings are optional and have sensible defaults.
-
-### Inline Message Display
-- `slackoscope.inline.enabled` - Enable inline message preview (default: true)
-- `slackoscope.inline.position` - Position: "right", "above", or "below" (default: "right")
-- `slackoscope.inline.showTime` - Show timestamp (default: true)
-- `slackoscope.inline.useRelativeTime` - Use relative time like "5m ago" (default: false)
-- `slackoscope.inline.showUser` - Show message author (default: false)
-- `slackoscope.inline.fontSize` - Font size in pixels, 10-24 (default: 12)
-- `slackoscope.inline.color` - Text color (default: "rgba(128, 128, 128, 0.6)")
-- `slackoscope.inline.fontStyle` - Font style: "normal" or "italic" (default: "italic")
-
-### Hover Tooltips
-- `slackoscope.hover.showChannel` - Show channel name in hover (default: true)
-- `slackoscope.hover.showFiles` - Show file attachments in hover (default: true)
-
-### Message Age Highlighting
-- `slackoscope.highlighting.enabled` - Enable message age color-coding (default: false)
-- `slackoscope.highlighting.todayColor` - Color for today's messages (default: green tint)
-- `slackoscope.highlighting.oldDays` - Age threshold in days for "old" messages (default: 7)
-- `slackoscope.highlighting.oldColor` - Color for old messages (default: red tint)
-
-### Integration Tokens
-- `slackoscope.token` - Slack API token (required)
-- `slackoscope.linearToken` - Linear API token (optional, for Linear integration)
+1. Settings → search “slackoscope”
+2. Set `slackoscope.token`
+3. Optional: set `slackoscope.linearToken`
+4. Optional: use 1Password refs like `op://vault/item/field`
 
 ## Usage
+1. Paste a Slack message link into your code
+2. Hover to preview
+3. Use Command Palette → “Slackoscope: Insert Commented Message” (or `Cmd+.` on the URL)
+4. If a Linear issue is detected, use “Slackoscope: Post Current File to Linear Issue” to post your file as a comment
 
-### Basic Workflow
-
-1. Copy a Slack message link (right-click message → **Copy link**)
-2. Paste it in your code:
-```javascript
-// See: https://workspace.slack.com/archives/C1234ABCD/p1234567890123456
-```
-3. Hover over the URL to preview message content, threads, and attachments
-4. Click **Insert Commented Message** to add it as a comment
-5. Or use code actions: Place cursor on URL → press `Cmd+.` → select "Insert as Comment"
-
-### Commands
-
-All commands are available via Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`):
-
-- **Slackoscope: Toggle Inline Message Display** - Show/hide inline previews for all Slack URLs in the current file
-- **Slackoscope: Insert Commented Message** - Insert message as a multi-line comment
-- **Slackoscope: Clear Message Cache** - Clear all cached messages (force refresh)
-- **Slackoscope: Post to Linear Issue** - Post current file as a comment to a Linear issue (when Linear issues are detected in Slack threads)
-
-### Tips
-
-- **Thread support**: Paste thread URLs (with `?thread_ts=...`) to view full conversations
-- **Inline display**: Toggle inline preview to see all messages at a glance
-- **Age highlighting**: Enable `highlighting.enabled` to color-code URLs by message age
-- **Linear workflow**: When Linear issues (e.g., "ENG-123") are mentioned in Slack threads, use the Post to Linear command to attach your code as a comment
-
-## Development
-
-### Quick Start
-
-```bash
-npm install              # Install dependencies
-npm run watch            # Auto-compile on changes (keep this running)
-```
-
-Press **F5** to launch the Extension Development Host (new VS Code window with extension loaded).
-
-Make changes, then reload the Extension Development Host with **Ctrl+R** (Cmd+R on Mac).
-
-Debug output appears in the Debug Console of your main VS Code window.
-
-### Testing
-
-**Manual testing**: Press **F5** and test interactively in the Extension Development Host window.
-
-**Automated tests**: Run `npm test` (spawns a headless VS Code instance and runs all tests).
-
-### Build & Package
-
-```bash
-npm run compile          # Type-check + lint + build (verify before publishing)
-npm run package          # Build production .vsix file
-```
-
-### Publishing
-
-Install `vsce` if you haven't:
-```bash
-npm install -g @vscode/vsce
-```
-
-Package and publish:
-```bash
-vsce package             # Creates .vsix file
-vsce publish             # Publishes to VS Code Marketplace
-```
-
-Or publish a specific version:
-```bash
-vsce publish patch       # Bumps patch version (1.0.0 → 1.0.1)
-vsce publish minor       # Bumps minor version (1.0.0 → 1.1.0)
-vsce publish major       # Bumps major version (1.0.0 → 2.0.0)
-```
-
-You'll need a Personal Access Token from Azure DevOps. See: https://code.visualstudio.com/api/working-with-extensions/publishing-extension
+## Configuration (optional)
+| Setting | Type | Values | What it does |
+| --- | --- | --- | --- |
+| `slackoscope.inline.enabled` | boolean | `true` / `false` | Show inline previews next to Slack URLs |
+| `slackoscope.inline.showChannelName` | boolean | `true` / `false` | Replace channel IDs with names (e.g., `C123` → `#general`) |
+| `slackoscope.inline.showUser` | boolean | `true` / `false` | Show message author in inline preview |
+| `slackoscope.inline.showTime` | boolean | `true` / `false` | Show message timestamp in inline preview |
+| `slackoscope.inline.useRelativeTime` | boolean | `true` / `false` | Use relative timestamps (e.g., “5m ago”) |
+| `slackoscope.inline.fontSize` | number | `10–24` | Inline preview font size (px) |
+| `slackoscope.inline.fontStyle` | string | `normal` / `italic` | Inline preview font style |
+| `slackoscope.inline.color` | string | CSS color | Inline preview text color |
+| `slackoscope.hover.showChannel` | boolean | `true` / `false` | Show channel name in hover tooltip |
+| `slackoscope.hover.showFiles` | boolean | `true` / `false` | Show attachments in hover tooltip |
+| `slackoscope.hover.showFileInfo` | boolean | `true` / `false` | Show file type/size in hover tooltip |
+| `slackoscope.highlighting.enabled` | boolean | `true` / `false` | Color-code Slack URLs by message age |
+| `slackoscope.highlighting.todayColor` | string | CSS color | Background for messages from today |
+| `slackoscope.highlighting.oldDays` | number | days | Age threshold for “old” messages |
+| `slackoscope.highlighting.oldColor` | string | CSS color | Background for “old” messages |
