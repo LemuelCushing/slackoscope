@@ -35,7 +35,8 @@
       },
       {
         "command": "slackoscope.postToLinear",
-        "title": "Slackoscope: Post Current File to Linear Issue"
+        "title": "Slackoscope: Post Current File to Linear Issue",
+        "enablement": "false"
       },
       {
         "command": "slackoscope.assignToMe",
