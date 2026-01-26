@@ -31,6 +31,11 @@ export interface HighlightingSettings {
   oldColor: string
 }
 
+export interface LinearSettings {
+  doneStateTypes: string[]
+  showTicketWarnings: boolean
+}
+
 export interface SettingsChangeEvent {
   tokensChanged: boolean
   displayChanged: boolean
@@ -103,6 +108,15 @@ export class Settings implements vscode.Disposable {
       todayColor: this.config.get("highlighting.todayColor", "rgba(100, 200, 100, 0.1)"),
       oldDays: this.config.get("highlighting.oldDays", 7),
       oldColor: this.config.get("highlighting.oldColor", "rgba(200, 100, 100, 0.1)"),
+    }
+  }
+
+  // Linear settings
+
+  get linear(): LinearSettings {
+    return {
+      doneStateTypes: this.config.get("linear.doneStateTypes", ["completed"]),
+      showTicketWarnings: this.config.get("linear.showTicketWarnings", true),
     }
   }
 
