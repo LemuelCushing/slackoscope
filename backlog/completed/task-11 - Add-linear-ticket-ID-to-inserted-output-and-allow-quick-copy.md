@@ -1,9 +1,10 @@
 ---
 id: task-11
 title: Add linear ticket ID to inserted output and allow quick copy
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-20 23:51'
+updated_date: '2026-01-26 22:56'
 labels:
   - linear
   - ux
