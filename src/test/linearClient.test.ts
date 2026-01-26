@@ -18,6 +18,7 @@ class TestableLinearClient implements ILinearClient {
     identifier: "TST-123",
     title: "Test Issue",
     url: "https://linear.app/test/issue/TST-123",
+    updatedAt: new Date().toISOString(),
     state: {id: "state-1", name: "In Progress", color: "#f39c12", type: "started"}
   }
   public mockViewer: LinearViewer = {

@@ -8,6 +8,7 @@ export interface LinearIssue {
   title: string
   url: string
   state: LinearState
+  updatedAt: string
 }
 
 export interface LinearState {

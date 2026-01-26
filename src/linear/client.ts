@@ -51,6 +51,7 @@ export class LinearClient implements ILinearClient {
           identifier
           title
           url
+          updatedAt
           state {
             id
             name
@@ -153,6 +154,7 @@ export class LinearClient implements ILinearClient {
             identifier
             title
             url
+            updatedAt
             state {
               id
               name
@@ -178,6 +180,7 @@ export class LinearClient implements ILinearClient {
             identifier
             title
             url
+            updatedAt
             state {
               id
               name

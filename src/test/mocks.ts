@@ -113,6 +113,7 @@ export class MockLinearClient implements ILinearClient {
       identifier,
       title: "Mock Linear Issue",
       url: `https://linear.app/test/issue/${identifier}`,
+      updatedAt: new Date().toISOString(),
       state: {
         id: "mock-state-id",
         name: "In Progress",
@@ -160,6 +161,7 @@ export class MockLinearClient implements ILinearClient {
       identifier: "MOCK-123",
       title: "Mock assigned issue",
       url: "https://linear.app/test/issue/MOCK-123",
+      updatedAt: new Date().toISOString(),
       state: {id: "mock-state-id", name: "In Progress", color: "#f39c12", type: "started"}
     }
   }
@@ -170,6 +172,7 @@ export class MockLinearClient implements ILinearClient {
       identifier: "MOCK-123",
       title: "Mock issue with updated state",
       url: "https://linear.app/test/issue/MOCK-123",
+      updatedAt: new Date().toISOString(),
       state: {id: stateId, name: "Done", color: "#27ae60", type: "completed"}
     }
   }

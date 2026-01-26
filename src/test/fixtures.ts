@@ -162,6 +162,7 @@ export const TEST_LINEAR_ISSUES: Record<string, LinearIssue> = {
     identifier: "ENG-1234",
     title: "Implement new feature",
     url: "https://linear.app/company/issue/ENG-1234",
+    updatedAt: new Date().toISOString(),
     state: {
       id: "state-1",
       name: "In Progress",
@@ -174,6 +175,7 @@ export const TEST_LINEAR_ISSUES: Record<string, LinearIssue> = {
     identifier: "TST-10291",
     title: "Fix bug in test suite",
     url: "https://linear.app/company/issue/TST-10291",
+    updatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
     state: {
       id: "state-2",
       name: "Done",
@@ -186,6 +188,7 @@ export const TEST_LINEAR_ISSUES: Record<string, LinearIssue> = {
     identifier: "PROJ-555",
     title: "Update documentation",
     url: "https://linear.app/company/issue/PROJ-555",
+    updatedAt: new Date().toISOString(),
     state: {
       id: "state-3",
       name: "Todo",
