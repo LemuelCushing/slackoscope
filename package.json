@@ -46,6 +46,11 @@
         "command": "slackoscope.setStatus",
         "title": "Slackoscope: Set Linear Issue Status",
         "enablement": "false"
+      },
+      {
+        "command": "slackoscope.claimAndClose",
+        "title": "Linear: Claim & Close Issue",
+        "enablement": "false"
       }
     ],
     "configuration": {
@@ -156,6 +161,23 @@
           "default": "rgba(200, 100, 100, 0.1)",
           "order": 43,
           "markdownDescription": "**Old message color** — Background color for old messages"
+        },
+        "slackoscope.linear.doneStateTypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "completed"
+          ],
+          "order": 50,
+          "markdownDescription": "**State types considered 'Done'** — Used for warning decorations and Claim & Close. Linear state types: `backlog`, `unstarted`, `started`, `completed`, `canceled`"
+        },
+        "slackoscope.linear.showTicketWarnings": {
+          "type": "boolean",
+          "default": true,
+          "order": 51,
+          "markdownDescription": "**Show ticket warnings** — Display ⚠️ DONE or ⚠️ OLD warnings before Slack URLs with Linear tickets"
         }
       }
     }
