@@ -42,10 +42,17 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
       const metadata = await this.linearLoader.getMetadataForUrl(url, all)
 
       if (metadata) {
-        actions.push(this.createPostToLinearAction(metadata.identifier, metadata.issueId))
+        const issue = await this.linearLoader.getIssue(metadata.identifier)
+        if (issue) {
+          actions.push(
+            this.createPostToLinearAction(issue.identifier, issue.id),
+            this.createAssignToMeAction(issue.identifier, issue.id),
+            this.createSetStatusAction(issue.identifier, issue.id)
+          )
+        }
       }
     } catch {
-      // Ignore errors - just don't show Linear action
+      // Ignore errors - just don't show Linear actions
     }
 
     return actions
@@ -66,6 +73,26 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
     action.command = {
       title: `Post to ${identifier}`,
       command: "slackoscope.postToLinear",
+      arguments: [{issueId, identifier}],
+    }
+    return action
+  }
+
+  private createAssignToMeAction(identifier: string, issueId: string): vscode.CodeAction {
+    const action = new vscode.CodeAction(`Slackoscope: Assign ${identifier} to Me`, vscode.CodeActionKind.RefactorInline)
+    action.command = {
+      title: `Assign ${identifier} to Me`,
+      command: "slackoscope.assignToMe",
+      arguments: [{issueId, identifier}],
+    }
+    return action
+  }
+
+  private createSetStatusAction(identifier: string, issueId: string): vscode.CodeAction {
+    const action = new vscode.CodeAction(`Slackoscope: Set ${identifier} Status`, vscode.CodeActionKind.RefactorInline)
+    action.command = {
+      title: `Set ${identifier} Status`,
+      command: "slackoscope.setStatus",
       arguments: [{issueId, identifier}],
     }
     return action

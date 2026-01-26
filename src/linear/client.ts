@@ -7,6 +7,8 @@ import type {LinearIssue, LinearComment, LinearViewer, LinearWorkflowState} from
 export interface ILinearClient {
   getIssueByIdentifier(identifier: string): Promise<LinearIssue>
   createComment(issueId: string, body: string): Promise<LinearComment>
+  getComments(issueId: string): Promise<LinearComment[]>
+  updateComment(commentId: string, body: string): Promise<LinearComment>
   getViewer(): Promise<LinearViewer>
   assignIssue(issueId: string, assigneeId: string | null): Promise<LinearIssue>
   updateIssueState(issueId: string, stateId: string): Promise<LinearIssue>
@@ -79,6 +81,51 @@ export class LinearClient implements ILinearClient {
 
     const data = await this.query<{commentCreate: {comment: LinearComment}}>(query, {issueId, body})
     return data.commentCreate.comment
+  }
+
+  async getComments(issueId: string): Promise<LinearComment[]> {
+    const query = `
+      query IssueComments($issueId: String!) {
+        issue(id: $issueId) {
+          comments {
+            nodes {
+              id
+              body
+              createdAt
+              user {
+                id
+                name
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await this.query<{issue: {comments: {nodes: LinearComment[]}}}>(query, {issueId})
+    return data.issue.comments.nodes
+  }
+
+  async updateComment(commentId: string, body: string): Promise<LinearComment> {
+    const query = `
+      mutation UpdateComment($commentId: String!, $body: String!) {
+        commentUpdate(id: $commentId, input: { body: $body }) {
+          success
+          comment {
+            id
+            body
+            createdAt
+            user {
+              id
+              name
+            }
+          }
+        }
+      }
+    `
+
+    const data = await this.query<{commentUpdate: {comment: LinearComment}}>(query, {commentId, body})
+    return data.commentUpdate.comment
   }
 
   async getViewer(): Promise<LinearViewer> {

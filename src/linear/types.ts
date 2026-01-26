@@ -21,6 +21,10 @@ export interface LinearComment {
   id: string
   body: string
   createdAt: string
+  user?: {
+    id: string
+    name: string
+  }
 }
 
 /**
