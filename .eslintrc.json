@@ -14,6 +14,7 @@
     "curly": "off",
     "eqeqeq": "warn",
     "no-throw-literal": "warn",
+    "@typescript-eslint/no-unused-vars": ["error", {"argsIgnorePattern": "^_"}],
     "@typescript-eslint/naming-convention": [
       "warn",
       {

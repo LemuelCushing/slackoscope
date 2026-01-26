@@ -209,7 +209,7 @@ export class LinearClient implements ILinearClient {
     const teamId = issueData.issue.team.id
 
     const statesQuery = `
-      query WorkflowStates($teamId: String!) {
+      query WorkflowStates($teamId: ID!) {
         workflowStates(filter: { team: { id: { eq: $teamId } } }) {
           nodes {
             id

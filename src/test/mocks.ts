@@ -6,7 +6,7 @@
  */
 
 import type {SlackMessage, SlackUser, SlackChannel, SlackThread} from "../slack"
-import type {LinearIssue, LinearComment} from "../linear"
+import type {LinearIssue, LinearComment, LinearViewer, LinearWorkflowState} from "../linear"
 import type {ISlackClient} from "../slack"
 import type {ILinearClient} from "../linear"
 import {
@@ -14,7 +14,9 @@ import {
   TEST_THREAD_REPLIES,
   getTestUser,
   getTestChannel,
-  getTestLinearIssue
+  getTestLinearIssue,
+  getTestWorkflowStates,
+  getTestViewer
 } from "./fixtures"
 
 /**
@@ -126,5 +128,53 @@ export class MockLinearClient implements ILinearClient {
       body,
       createdAt: new Date().toISOString()
     }
+  }
+
+  async getComments(_issueId: string): Promise<LinearComment[]> {
+    return [
+      {
+        id: "mock-comment-1",
+        body: "First mock comment",
+        createdAt: new Date().toISOString(),
+        user: {id: "mock-user-id", name: "Mock User"}
+      }
+    ]
+  }
+
+  async updateComment(commentId: string, body: string): Promise<LinearComment> {
+    return {
+      id: commentId,
+      body,
+      createdAt: new Date().toISOString(),
+      user: {id: "mock-user-id", name: "Mock User"}
+    }
+  }
+
+  async getViewer(): Promise<LinearViewer> {
+    return getTestViewer()
+  }
+
+  async assignIssue(issueId: string, _assigneeId: string | null): Promise<LinearIssue> {
+    return {
+      id: issueId,
+      identifier: "MOCK-123",
+      title: "Mock assigned issue",
+      url: "https://linear.app/test/issue/MOCK-123",
+      state: {id: "mock-state-id", name: "In Progress", color: "#f39c12", type: "started"}
+    }
+  }
+
+  async updateIssueState(issueId: string, stateId: string): Promise<LinearIssue> {
+    return {
+      id: issueId,
+      identifier: "MOCK-123",
+      title: "Mock issue with updated state",
+      url: "https://linear.app/test/issue/MOCK-123",
+      state: {id: stateId, name: "Done", color: "#27ae60", type: "completed"}
+    }
+  }
+
+  async getWorkflowStates(_issueId: string): Promise<LinearWorkflowState[]> {
+    return getTestWorkflowStates()
   }
 }

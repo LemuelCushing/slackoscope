@@ -1,5 +1,5 @@
 import type {SlackMessage, SlackUser, SlackChannel, SlackFile} from "../slack"
-import type {LinearIssue} from "../linear"
+import type {LinearIssue, LinearWorkflowState, LinearViewer} from "../linear"
 
 /**
  * Test fixtures for realistic mock data
@@ -195,6 +195,21 @@ export const TEST_LINEAR_ISSUES: Record<string, LinearIssue> = {
   }
 }
 
+export const TEST_WORKFLOW_STATES: LinearWorkflowState[] = [
+  {id: "state-backlog", name: "Backlog", color: "#bdc3c7", type: "backlog"},
+  {id: "state-todo", name: "Todo", color: "#3498db", type: "unstarted"},
+  {id: "state-progress", name: "In Progress", color: "#f39c12", type: "started"},
+  {id: "state-review", name: "In Review", color: "#9b59b6", type: "started"},
+  {id: "state-done", name: "Done", color: "#27ae60", type: "completed"},
+  {id: "state-canceled", name: "Canceled", color: "#95a5a6", type: "canceled"}
+]
+
+export const TEST_VIEWER: LinearViewer = {
+  id: "viewer-test-id",
+  name: "Test User",
+  email: "testuser@example.com"
+}
+
 export const TEST_SLACK_URLS = {
   simple: "https://workspace.slack.com/archives/C1234ABCD/p1234567890123456",
   withFiles: "https://workspace.slack.com/archives/C1234ABCD/p1234567890234567",
@@ -230,4 +245,18 @@ export function getTestChannel(channelId: string): SlackChannel | undefined {
  */
 export function getTestLinearIssue(identifier: string): LinearIssue | undefined {
   return TEST_LINEAR_ISSUES[identifier]
+}
+
+/**
+ * Get all test workflow states
+ */
+export function getTestWorkflowStates(): LinearWorkflowState[] {
+  return TEST_WORKFLOW_STATES
+}
+
+/**
+ * Get the test viewer
+ */
+export function getTestViewer(): LinearViewer {
+  return TEST_VIEWER
 }
