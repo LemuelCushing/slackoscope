@@ -9,7 +9,7 @@
 
 import * as vscode from "vscode"
 import type {SlackLoader, SlackMessage} from "../../slack"
-import type {LinearLoader} from "../../linear"
+import type {LinearLoader, LinearIssue} from "../../linear"
 import type {Settings} from "../config"
 import {SlackUrlOccurrence} from "../editor"
 import {createInlineDecorationType, buildInlineContent, createDecorationOptions} from "../renderers"
@@ -18,6 +18,7 @@ import {formatAbsoluteTime, slackTsToDate} from "../renderers/formatting"
 interface FetchResult {
   occurrence: SlackUrlOccurrence
   message: SlackMessage
+  linearIssue?: LinearIssue
 }
 
 export class DecorationController implements vscode.Disposable {
@@ -33,6 +34,10 @@ export class DecorationController implements vscode.Disposable {
   private todayHighlightType: vscode.TextEditorDecorationType | null = null
   private oldHighlightType: vscode.TextEditorDecorationType | null = null
 
+  // Linear ticket warning decorations
+  private doneWarningType: vscode.TextEditorDecorationType | null = null
+  private oldTicketWarningType: vscode.TextEditorDecorationType | null = null
+
   private disposables: vscode.Disposable[] = []
   private updateTimeout: NodeJS.Timeout | null = null
 
@@ -44,6 +49,7 @@ export class DecorationController implements vscode.Disposable {
     // Create decoration types
     this.createUrlReplacementTypes()
     this.createHighlightTypes()
+    this.createWarningTypes()
     this.inlineDecorationType = createInlineDecorationType(this.settings.inline)
 
     // Initial update for visible editors
@@ -115,6 +121,23 @@ export class DecorationController implements vscode.Disposable {
     })
   }
 
+  private createWarningTypes(): void {
+    this.doneWarningType = vscode.window.createTextEditorDecorationType({
+      before: {
+        contentText: "⚠️ DONE ",
+        color: "#27ae60",
+        fontWeight: "bold",
+      },
+    })
+    this.oldTicketWarningType = vscode.window.createTextEditorDecorationType({
+      before: {
+        contentText: "⚠️ OLD ",
+        color: "#e67e22",
+        fontWeight: "bold",
+      },
+    })
+  }
+
   private scheduleUpdate(editor: vscode.TextEditor): void {
     if (this.updateTimeout) clearTimeout(this.updateTimeout)
     this.updateTimeout = setTimeout(() => this.updateDecorations(editor), 300)
@@ -149,14 +172,34 @@ export class DecorationController implements vscode.Disposable {
     } else {
       this.clearHighlights(editor)
     }
+
+    // Linear ticket warnings
+    if (this.settings.linear.showTicketWarnings) {
+      this.applyTicketWarnings(editor, results)
+    } else {
+      this.clearTicketWarnings(editor)
+    }
   }
 
   private async fetchMessages(occurrences: SlackUrlOccurrence[]): Promise<FetchResult[]> {
     const results = await Promise.all(
       occurrences.map(async occ => {
         try {
-          const {target} = await this.slackLoader.getMessagesForUrl(occ.url)
-          return {occurrence: occ, message: target}
+          const {target, all} = await this.slackLoader.getMessagesForUrl(occ.url)
+
+          // Try to get Linear issue metadata
+          let linearIssue: LinearIssue | undefined
+          try {
+            const metadata = await this.linearLoader.getMetadataForUrl(occ.url, all)
+            if (metadata) {
+              const issue = await this.linearLoader.getIssue(metadata.identifier)
+              linearIssue = issue ?? undefined
+            }
+          } catch {
+            // Linear lookup failed, continue without it
+          }
+
+          return {occurrence: occ, message: target, linearIssue} as FetchResult
         } catch {
           return null
         }
@@ -252,9 +295,40 @@ export class DecorationController implements vscode.Disposable {
     editor.setDecorations(this.oldHighlightType, oldRanges)
   }
 
+  private applyTicketWarnings(editor: vscode.TextEditor, results: FetchResult[]): void {
+    if (!this.doneWarningType || !this.oldTicketWarningType) return
+
+    const doneRanges: vscode.Range[] = []
+    const oldTicketRanges: vscode.Range[] = []
+    const now = new Date()
+    const oldDays = this.settings.highlighting.oldDays
+    const doneStateTypes = this.settings.linear.doneStateTypes
+
+    for (const {occurrence, linearIssue} of results) {
+      if (!linearIssue) continue
+
+      const isDone = doneStateTypes.includes(linearIssue.state.type)
+      const updatedAt = new Date(linearIssue.updatedAt)
+      const diffDays = Math.floor((now.getTime() - updatedAt.getTime()) / 86400000)
+      const isOld = diffDays >= oldDays
+
+      // Done and old can both apply
+      if (isDone) {
+        doneRanges.push(occurrence.range)
+      }
+      if (isOld) {
+        oldTicketRanges.push(occurrence.range)
+      }
+    }
+
+    editor.setDecorations(this.doneWarningType, doneRanges)
+    editor.setDecorations(this.oldTicketWarningType, oldTicketRanges)
+  }
+
   private clearEditorDecorations(editor: vscode.TextEditor): void {
     this.clearUrlReplacements(editor)
     this.clearHighlights(editor)
+    this.clearTicketWarnings(editor)
     if (this.inlineDecorationType) {
       editor.setDecorations(this.inlineDecorationType, [])
     }
@@ -268,6 +342,11 @@ export class DecorationController implements vscode.Disposable {
   private clearHighlights(editor: vscode.TextEditor): void {
     if (this.todayHighlightType) editor.setDecorations(this.todayHighlightType, [])
     if (this.oldHighlightType) editor.setDecorations(this.oldHighlightType, [])
+  }
+
+  private clearTicketWarnings(editor: vscode.TextEditor): void {
+    if (this.doneWarningType) editor.setDecorations(this.doneWarningType, [])
+    if (this.oldTicketWarningType) editor.setDecorations(this.oldTicketWarningType, [])
   }
 
   private clearInlineDecorations(): void {
@@ -286,6 +365,8 @@ export class DecorationController implements vscode.Disposable {
     this.inlineDecorationType?.dispose()
     this.todayHighlightType?.dispose()
     this.oldHighlightType?.dispose()
+    this.doneWarningType?.dispose()
+    this.oldTicketWarningType?.dispose()
     this.disposables.forEach(d => d.dispose())
   }
 }
