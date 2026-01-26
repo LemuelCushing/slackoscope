@@ -2,11 +2,15 @@
  * LinearClient - HTTP client for Linear GraphQL API.
  */
 
-import type {LinearIssue, LinearComment} from "./types"
+import type {LinearIssue, LinearComment, LinearViewer, LinearWorkflowState} from "./types"
 
 export interface ILinearClient {
   getIssueByIdentifier(identifier: string): Promise<LinearIssue>
   createComment(issueId: string, body: string): Promise<LinearComment>
+  getViewer(): Promise<LinearViewer>
+  assignIssue(issueId: string, assigneeId: string | null): Promise<LinearIssue>
+  updateIssueState(issueId: string, stateId: string): Promise<LinearIssue>
+  getWorkflowStates(issueId: string): Promise<LinearWorkflowState[]>
 }
 
 export class LinearClient implements ILinearClient {
@@ -75,5 +79,102 @@ export class LinearClient implements ILinearClient {
 
     const data = await this.query<{commentCreate: {comment: LinearComment}}>(query, {issueId, body})
     return data.commentCreate.comment
+  }
+
+  async getViewer(): Promise<LinearViewer> {
+    const query = `
+      query Viewer {
+        viewer {
+          id
+          name
+          email
+        }
+      }
+    `
+
+    const data = await this.query<{viewer: LinearViewer}>(query)
+    return data.viewer
+  }
+
+  async assignIssue(issueId: string, assigneeId: string | null): Promise<LinearIssue> {
+    const query = `
+      mutation AssignIssue($issueId: String!, $assigneeId: String) {
+        issueUpdate(id: $issueId, input: { assigneeId: $assigneeId }) {
+          success
+          issue {
+            id
+            identifier
+            title
+            url
+            state {
+              id
+              name
+              color
+              type
+            }
+          }
+        }
+      }
+    `
+
+    const data = await this.query<{issueUpdate: {issue: LinearIssue}}>(query, {issueId, assigneeId})
+    return data.issueUpdate.issue
+  }
+
+  async updateIssueState(issueId: string, stateId: string): Promise<LinearIssue> {
+    const query = `
+      mutation UpdateIssueState($issueId: String!, $stateId: String!) {
+        issueUpdate(id: $issueId, input: { stateId: $stateId }) {
+          success
+          issue {
+            id
+            identifier
+            title
+            url
+            state {
+              id
+              name
+              color
+              type
+            }
+          }
+        }
+      }
+    `
+
+    const data = await this.query<{issueUpdate: {issue: LinearIssue}}>(query, {issueId, stateId})
+    return data.issueUpdate.issue
+  }
+
+  async getWorkflowStates(issueId: string): Promise<LinearWorkflowState[]> {
+    // First get the issue's team, then get workflow states for that team
+    const issueQuery = `
+      query IssueTeam($issueId: String!) {
+        issue(id: $issueId) {
+          team {
+            id
+          }
+        }
+      }
+    `
+
+    const issueData = await this.query<{issue: {team: {id: string}}}>(issueQuery, {issueId})
+    const teamId = issueData.issue.team.id
+
+    const statesQuery = `
+      query WorkflowStates($teamId: String!) {
+        workflowStates(filter: { team: { id: { eq: $teamId } } }) {
+          nodes {
+            id
+            name
+            color
+            type
+          }
+        }
+      }
+    `
+
+    const statesData = await this.query<{workflowStates: {nodes: LinearWorkflowState[]}}>(statesQuery, {teamId})
+    return statesData.workflowStates.nodes
   }
 }

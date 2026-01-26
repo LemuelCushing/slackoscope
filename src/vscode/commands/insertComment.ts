@@ -4,13 +4,20 @@
 
 import * as vscode from "vscode"
 import {parseSlackUrl, type SlackLoader} from "../../slack"
+import type {LinearLoader} from "../../linear"
 
 interface InsertCommentArgs {
   url: string
   lineNumber?: number
+  linearIdentifier?: string
 }
 
-export async function insertComment(slackLoader: SlackLoader, args: InsertCommentArgs): Promise<void> {
+interface InsertCommentDeps {
+  slackLoader: SlackLoader
+  linearLoader: LinearLoader
+}
+
+export async function insertComment(deps: InsertCommentDeps, args: InsertCommentArgs): Promise<void> {
   const editor = vscode.window.activeTextEditor
   if (!editor) {
     vscode.window.showErrorMessage("Slackoscope: No active editor")
@@ -24,14 +31,24 @@ export async function insertComment(slackLoader: SlackLoader, args: InsertCommen
   }
 
   try {
-    const {target} = await slackLoader.getMessagesForUrl(url)
+    const {target, all} = await deps.slackLoader.getMessagesForUrl(url)
 
     // Get the message to insert
-    const user = await slackLoader.getUser(target.user)
+    const user = await deps.slackLoader.getUser(target.user)
     const lines = target.text.split("\n")
 
-    // Build the comment content
-    const header = `@${user.displayName}:`
+    // Check for Linear issue if not already provided
+    let linearIdentifier = args.linearIdentifier
+    if (!linearIdentifier) {
+      const linearMetadata = await deps.linearLoader.getMetadataForUrl(url, all)
+      if (linearMetadata) {
+        linearIdentifier = linearMetadata.identifier
+      }
+    }
+
+    // Build the comment content with Linear ticket ID if available
+    const linearPrefix = linearIdentifier ? `[${linearIdentifier}] ` : ""
+    const header = `${linearPrefix}@${user.displayName}:`
     const commentLines = [header, ...lines]
 
     // Use VS Code snippets for language-agnostic comments

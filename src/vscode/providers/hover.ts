@@ -74,15 +74,31 @@ export class HoverProvider implements vscode.HoverProvider {
 
       // Actions
       const actions: Array<{label: string; command: string; args: object}> = [
-        {label: "Insert as Comment", command: "slackoscope.insertCommentedMessage", args: {url: url.raw}},
+        {
+          label: "Insert as Comment",
+          command: "slackoscope.insertCommentedMessage",
+          args: {url: url.raw, linearIdentifier: linearIssue?.identifier},
+        },
       ]
 
       if (linearIssue) {
-        actions.push({
-          label: `Post to ${linearIssue.identifier}`,
-          command: "slackoscope.postToLinear",
-          args: {issueId: linearIssue.id, identifier: linearIssue.identifier},
-        })
+        actions.push(
+          {
+            label: `Post to ${linearIssue.identifier}`,
+            command: "slackoscope.postToLinear",
+            args: {issueId: linearIssue.id, identifier: linearIssue.identifier},
+          },
+          {
+            label: "Assign to Me",
+            command: "slackoscope.assignToMe",
+            args: {issueId: linearIssue.id, identifier: linearIssue.identifier},
+          },
+          {
+            label: "Set Status",
+            command: "slackoscope.setStatus",
+            args: {issueId: linearIssue.id, identifier: linearIssue.identifier},
+          }
+        )
       }
 
       builder.actions(...actions)

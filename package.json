@@ -36,6 +36,16 @@
       {
         "command": "slackoscope.postToLinear",
         "title": "Slackoscope: Post Current File to Linear Issue"
+      },
+      {
+        "command": "slackoscope.assignToMe",
+        "title": "Slackoscope: Assign Linear Issue to Me",
+        "enablement": "false"
+      },
+      {
+        "command": "slackoscope.setStatus",
+        "title": "Slackoscope: Set Linear Issue Status",
+        "enablement": "false"
       }
     ],
     "configuration": {

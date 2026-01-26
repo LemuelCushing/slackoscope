@@ -32,3 +32,22 @@ export type LinearUrlMetadata = {
   issueId: string
   identifier: string
 } | null
+
+/**
+ * The current authenticated user.
+ */
+export interface LinearViewer {
+  id: string
+  name: string
+  email: string
+}
+
+/**
+ * A workflow state in Linear.
+ */
+export interface LinearWorkflowState {
+  id: string
+  name: string
+  color: string
+  type: string
+}

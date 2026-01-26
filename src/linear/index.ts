@@ -3,7 +3,7 @@
  */
 
 // Types
-export type {LinearIssue, LinearState, LinearComment, LinearUrlMetadata} from "./types"
+export type {LinearIssue, LinearState, LinearComment, LinearUrlMetadata, LinearViewer, LinearWorkflowState} from "./types"
 
 // Detection (pure functions)
 export {findLinearIssues, extractLinearIssueFromMessage, findLinearIssueInMessages} from "./detector"

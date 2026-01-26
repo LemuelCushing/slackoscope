@@ -16,6 +16,8 @@ import {toggleInline} from "./toggleInline"
 import {insertComment} from "./insertComment"
 import {clearCache} from "./clearCache"
 import {postToLinear} from "./postToLinear"
+import {assignToMe} from "./assignToMe"
+import {setStatus} from "./setStatus"
 
 /**
  * Dependencies available to commands.
@@ -37,13 +39,19 @@ export interface CommandDependencies {
 const COMMANDS = {
   toggleInlineMessage: (deps: CommandDependencies) => () => toggleInline(deps.decorationController),
 
-  insertCommentedMessage: (deps: CommandDependencies) => (args: {url: string; lineNumber?: number}) =>
-    insertComment(deps.slackLoader, args),
+  insertCommentedMessage: (deps: CommandDependencies) => (args: {url: string; lineNumber?: number; linearIdentifier?: string}) =>
+    insertComment({slackLoader: deps.slackLoader, linearLoader: deps.linearLoader}, args),
 
   clearCache: (deps: CommandDependencies) => () => clearCache(deps.slackStore, deps.linearStore),
 
   postToLinear: (deps: CommandDependencies) => (args: {issueId: string; identifier: string}) =>
     postToLinear(deps.linearClient, args),
+
+  assignToMe: (deps: CommandDependencies) => (args: {issueId: string; identifier: string}) =>
+    assignToMe(deps.linearClient, args),
+
+  setStatus: (deps: CommandDependencies) => (args: {issueId: string; identifier: string}) =>
+    setStatus(deps.linearClient, args),
 } as const
 
 export type CommandId = keyof typeof COMMANDS
