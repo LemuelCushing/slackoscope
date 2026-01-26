@@ -36,7 +36,12 @@ export class HoverContentBuilder {
    * Add message text as blockquote.
    */
   message(text: string): this {
-    this.sections.push(`> ${text}`)
+    // Handle multi-line messages - each line needs > prefix
+    const quoted = text
+      .split("\n")
+      .map(line => `> ${line}`)
+      .join("\n")
+    this.sections.push(quoted)
     return this
   }
 

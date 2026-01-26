@@ -13,7 +13,6 @@ const MAX_INLINE_LENGTH = 80
 
 export interface DecorationContent {
   text: string
-  hoverMessage?: string
 }
 
 /**
@@ -60,26 +59,17 @@ export function buildInlineContent(
     text += ` • ${time}`
   }
 
-  return {
-    text,
-    hoverMessage: message.text,
-  }
+  return {text}
 }
 
 /**
  * Create decoration options for a range with content.
  */
-export function createDecorationOptions(
-  range: vscode.Range,
-  content: DecorationContent
-): vscode.DecorationOptions {
+export function createDecorationOptions(range: vscode.Range, content: DecorationContent): vscode.DecorationOptions {
   return {
     range,
     renderOptions: {
-      after: {
-        contentText: content.text,
-      },
+      after: {contentText: content.text},
     },
-    hoverMessage: content.hoverMessage,
   }
 }
