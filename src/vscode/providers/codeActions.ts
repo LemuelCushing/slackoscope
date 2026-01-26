@@ -47,7 +47,8 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
           actions.push(
             this.createPostToLinearAction(issue.identifier, issue.id),
             this.createAssignToMeAction(issue.identifier, issue.id),
-            this.createSetStatusAction(issue.identifier, issue.id)
+            this.createSetStatusAction(issue.identifier, issue.id),
+            this.createClaimAndCloseAction(issue.identifier, issue.id)
           )
         }
       }
@@ -59,7 +60,7 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
   }
 
   private createInsertCommentAction(url: string): vscode.CodeAction {
-    const action = new vscode.CodeAction("Slackoscope: Insert as Comment", vscode.CodeActionKind.RefactorInline)
+    const action = new vscode.CodeAction("Slack: Insert as Comment", vscode.CodeActionKind.RefactorInline)
     action.command = {
       title: "Insert Slack Message as Comment",
       command: "slackoscope.insertCommentedMessage",
@@ -69,7 +70,7 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
   }
 
   private createPostToLinearAction(identifier: string, issueId: string): vscode.CodeAction {
-    const action = new vscode.CodeAction(`Slackoscope: Post to ${identifier}`, vscode.CodeActionKind.RefactorInline)
+    const action = new vscode.CodeAction(`Linear: Post to ${identifier}`, vscode.CodeActionKind.RefactorInline)
     action.command = {
       title: `Post to ${identifier}`,
       command: "slackoscope.postToLinear",
@@ -79,7 +80,7 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
   }
 
   private createAssignToMeAction(identifier: string, issueId: string): vscode.CodeAction {
-    const action = new vscode.CodeAction(`Slackoscope: Assign ${identifier} to Me`, vscode.CodeActionKind.RefactorInline)
+    const action = new vscode.CodeAction(`Linear: Assign ${identifier} to Me`, vscode.CodeActionKind.RefactorInline)
     action.command = {
       title: `Assign ${identifier} to Me`,
       command: "slackoscope.assignToMe",
@@ -89,10 +90,20 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
   }
 
   private createSetStatusAction(identifier: string, issueId: string): vscode.CodeAction {
-    const action = new vscode.CodeAction(`Slackoscope: Set ${identifier} Status`, vscode.CodeActionKind.RefactorInline)
+    const action = new vscode.CodeAction(`Linear: Set ${identifier} Status`, vscode.CodeActionKind.RefactorInline)
     action.command = {
       title: `Set ${identifier} Status`,
       command: "slackoscope.setStatus",
+      arguments: [{issueId, identifier}],
+    }
+    return action
+  }
+
+  private createClaimAndCloseAction(identifier: string, issueId: string): vscode.CodeAction {
+    const action = new vscode.CodeAction(`Linear: Claim & Close ${identifier}`, vscode.CodeActionKind.RefactorInline)
+    action.command = {
+      title: `Claim & Close ${identifier}`,
+      command: "slackoscope.claimAndClose",
       arguments: [{issueId, identifier}],
     }
     return action

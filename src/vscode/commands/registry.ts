@@ -12,12 +12,14 @@ import * as vscode from "vscode"
 import type {SlackStore, SlackLoader, ISlackClient} from "../../slack"
 import type {LinearStore, LinearLoader, ILinearClient} from "../../linear"
 import type {DecorationController} from "../controllers"
+import type {Settings} from "../config"
 import {toggleInline} from "./toggleInline"
 import {insertComment} from "./insertComment"
 import {clearCache} from "./clearCache"
 import {postToLinear} from "./postToLinear"
 import {assignToMe} from "./assignToMe"
 import {setStatus} from "./setStatus"
+import {claimAndClose} from "./claimAndClose"
 
 /**
  * Dependencies available to commands.
@@ -30,6 +32,7 @@ export interface CommandDependencies {
   linearStore: LinearStore
   linearLoader: LinearLoader
   decorationController: DecorationController
+  settings: Settings
 }
 
 /**
@@ -52,6 +55,9 @@ const COMMANDS = {
 
   setStatus: (deps: CommandDependencies) => (args: {issueId: string; identifier: string}) =>
     setStatus(deps.linearClient, args),
+
+  claimAndClose: (deps: CommandDependencies) => (args: {issueId: string; identifier: string}) =>
+    claimAndClose(deps.linearClient, deps.settings, args),
 } as const
 
 export type CommandId = keyof typeof COMMANDS

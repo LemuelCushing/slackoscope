@@ -101,6 +101,7 @@ class Slackoscope implements vscode.Disposable {
       linearStore: this.linearStore,
       linearLoader: this.linearLoader,
       decorationController: this.decorationController,
+      settings: this.settings,
     })
 
     // Subscribe to settings changes
