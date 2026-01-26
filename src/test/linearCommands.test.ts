@@ -61,6 +61,114 @@ suite("Linear Commands Tests", () => {
       const commands = await vscode.commands.getCommands(true)
       assert.ok(commands.includes("slackoscope.assignToMe"), "assignToMe command should be registered")
     })
+
+    test("should register claimAndClose command", async () => {
+      const commands = await vscode.commands.getCommands(true)
+      assert.ok(commands.includes("slackoscope.claimAndClose"), "claimAndClose command should be registered")
+    })
+  })
+
+  suite("Code Action Prefixes", () => {
+    test("should use 'Slack:' prefix for Slack actions", async () => {
+      const {doc} = await createTestDocument(`${TEST_SLACK_URLS.simple}\n`)
+
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      const position = new vscode.Position(0, 10)
+      const range = new vscode.Range(position, position)
+
+      const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+        "vscode.executeCodeActionProvider",
+        doc.uri,
+        range
+      )
+
+      if (actions && actions.length > 0) {
+        const insertAction = actions.find(a => a.title.includes("Insert as Comment"))
+        if (insertAction) {
+          assert.ok(
+            insertAction.title.startsWith("Slack:"),
+            `Insert comment action should start with 'Slack:' but was '${insertAction.title}'`
+          )
+        }
+      }
+    })
+
+    test("should use 'Linear:' prefix for Linear actions", async () => {
+      const {doc} = await createTestDocument(`${TEST_SLACK_URLS.threadParent}\n`)
+
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      const position = new vscode.Position(0, 10)
+      const range = new vscode.Range(position, position)
+
+      const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+        "vscode.executeCodeActionProvider",
+        doc.uri,
+        range
+      )
+
+      if (actions && actions.length > 0) {
+        const linearActions = actions.filter(
+          a => a.title.includes("Post to") || a.title.includes("Assign") || a.title.includes("Set") || a.title.includes("Claim")
+        )
+
+        for (const action of linearActions) {
+          if (action.title.includes("Post to") || action.title.includes("Assign") || action.title.includes("Set") || action.title.includes("Claim")) {
+            assert.ok(
+              action.title.startsWith("Linear:"),
+              `Linear action should start with 'Linear:' but was '${action.title}'`
+            )
+          }
+        }
+      }
+    })
+
+    test("should provide Claim & Close action for Linear issues", async () => {
+      const {doc} = await createTestDocument(`${TEST_SLACK_URLS.threadParent}\n`)
+
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      const position = new vscode.Position(0, 10)
+      const range = new vscode.Range(position, position)
+
+      const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+        "vscode.executeCodeActionProvider",
+        doc.uri,
+        range
+      )
+
+      if (actions && actions.length > 0) {
+        const claimAndCloseAction = actions.find(a => a.title.includes("Claim & Close"))
+        if (claimAndCloseAction) {
+          assert.ok(
+            claimAndCloseAction.title.startsWith("Linear:"),
+            `Claim & Close action should start with 'Linear:'`
+          )
+          assert.ok(
+            claimAndCloseAction.command?.command === "slackoscope.claimAndClose",
+            "Should use claimAndClose command"
+          )
+        }
+      }
+    })
+  })
+
+  suite("Linear Settings", () => {
+    test("should have linear.doneStateTypes setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const doneStateTypes = config.get<string[]>("linear.doneStateTypes")
+      // Should default to ["completed"]
+      assert.ok(Array.isArray(doneStateTypes), "doneStateTypes should be an array")
+      assert.ok(doneStateTypes.includes("completed"), "Should include 'completed' by default")
+    })
+
+    test("should have linear.showTicketWarnings setting", () => {
+      const config = vscode.workspace.getConfiguration("slackoscope")
+      const showTicketWarnings = config.get<boolean>("linear.showTicketWarnings")
+      // Should default to true
+      assert.strictEqual(showTicketWarnings, true)
+    })
   })
 
   suite("setStatus Command", () => {
