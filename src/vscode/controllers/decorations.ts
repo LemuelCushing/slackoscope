@@ -124,14 +124,14 @@ export class DecorationController implements vscode.Disposable {
   private createWarningTypes(): void {
     this.doneWarningType = vscode.window.createTextEditorDecorationType({
       before: {
-        contentText: "⚠️ DONE ",
+        contentText: "✓ DONE ",
         color: "#27ae60",
         fontWeight: "bold",
       },
     })
     this.oldTicketWarningType = vscode.window.createTextEditorDecorationType({
       before: {
-        contentText: "⚠️ OLD ",
+        contentText: "◉ OLD ",
         color: "#e67e22",
         fontWeight: "bold",
       },
