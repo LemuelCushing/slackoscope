@@ -8,6 +8,7 @@
 // URL parsing (pure, no dependencies)
 export {
   SLACK_URL_REGEX,
+  SLACK_URL_REGEX_GLOBAL,
   parseSlackUrl,
   findAllSlackUrls,
   isThread,

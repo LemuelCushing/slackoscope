@@ -11,6 +11,9 @@
 export const SLACK_URL_REGEX =
   /https:\/\/([a-zA-Z0-9-]+)\.slack\.com\/archives\/([A-Z0-9]+)\/p(\d+)(?:\?thread_ts=(\d+\.\d+)[^\s]*)?/
 
+/** Global variant for matchAll — each call to matchAll resets state, so sharing is safe. */
+export const SLACK_URL_REGEX_GLOBAL = new RegExp(SLACK_URL_REGEX.source, "g")
+
 export interface SlackUrl {
   readonly raw: string
   readonly workspace: string
@@ -68,8 +71,7 @@ export const messageCacheKey = (url: SlackUrl): string => `${url.channelId}:${ur
  * Find all Slack URLs in a string.
  */
 export function findAllSlackUrls(text: string): SlackUrl[] {
-  const globalRegex = new RegExp(SLACK_URL_REGEX.source, "g")
-  return [...text.matchAll(globalRegex)]
+  return [...text.matchAll(SLACK_URL_REGEX_GLOBAL)]
     .map(match => parseSlackUrl(match[0]))
     .filter((url): url is SlackUrl => url !== null)
 }

@@ -6,7 +6,7 @@
  */
 
 import * as vscode from "vscode"
-import {parseSlackUrl, SLACK_URL_REGEX, type SlackUrl} from "../../slack"
+import {parseSlackUrl, SLACK_URL_REGEX_GLOBAL, type SlackUrl} from "../../slack"
 import {rangeFromLineMatch, rangeFromDocumentMatch, rangeWithin} from "./ranges"
 
 export class SlackUrlOccurrence {
@@ -35,8 +35,7 @@ export class SlackUrlOccurrence {
    * Find all Slack URLs on a line.
    */
   static scanLine(line: vscode.TextLine): SlackUrlOccurrence[] {
-    const regex = new RegExp(SLACK_URL_REGEX.source, "g")
-    return [...line.text.matchAll(regex)]
+    return [...line.text.matchAll(SLACK_URL_REGEX_GLOBAL)]
       .map(match => SlackUrlOccurrence.fromLineMatch(line, match))
       .filter((occ): occ is SlackUrlOccurrence => occ !== null)
   }
@@ -45,8 +44,7 @@ export class SlackUrlOccurrence {
    * Find all Slack URLs in a document.
    */
   static scanDocument(document: vscode.TextDocument): SlackUrlOccurrence[] {
-    const regex = new RegExp(SLACK_URL_REGEX.source, "g")
-    return [...document.getText().matchAll(regex)]
+    return [...document.getText().matchAll(SLACK_URL_REGEX_GLOBAL)]
       .map(match => SlackUrlOccurrence.fromDocumentMatch(document, match))
       .filter((occ): occ is SlackUrlOccurrence => occ !== null)
   }
@@ -88,15 +86,17 @@ export class SlackUrlOccurrence {
   }
 
   /**
-   * Get the range of just the timestamp within the URL.
+   * Get the range of just the timestamp within the URL (the "p123..." segment).
    */
   timestampRange(): vscode.Range | null {
-    const match = this.url.raw.match(/\/p(\d+)/)
-    if (!match) return null
-    const offset = this.url.raw.indexOf(match[0])
-    if (offset === -1) return null
-    // Skip the leading "/", keep just "p123..."
-    return rangeWithin(this.range, offset + 1, match[0].length - 1)
+    const pIndex = this.url.raw.lastIndexOf("/p")
+    if (pIndex === -1) return null
+
+    const start = pIndex + 1 // skip the "/"
+    const queryStart = this.url.raw.indexOf("?", start)
+    const end = queryStart === -1 ? this.url.raw.length : queryStart
+
+    return rangeWithin(this.range, start, end - start)
   }
 
   /**
