@@ -2,12 +2,45 @@
  * HoverContentBuilder - Fluent builder for hover tooltip content.
  *
  * Separates presentation logic from the hover provider.
+ * Glyphs drawn from alchemical and ancient unicode blocks.
  */
 
 import * as vscode from "vscode"
 import type {SlackChannel, SlackUser, SlackMessage, SlackFile} from "../../slack"
 import type {LinearIssue} from "../../linear"
-import {formatRelativeTime, slackTsToDate} from "./formatting"
+import {formatRelativeTime, slackTsToDate, truncate} from "./formatting"
+
+/** Action link definition */
+export interface ActionDef {
+  label: string
+  command: string
+  args: object
+}
+
+/** Decorative flourishes — ancient scripts and alchemical glyphs, sprinkled sparingly */
+const FLOURISHES = [
+  "𖡹", "ᘒ", "ↀ", "𖡄", "𐘃", "𐀉", "𐀳", "𐀒", "𐜩", "𐛺",
+  "𐛌", "𐚃", "𐘘", "𖠲", "𖠢", "𖠦", "𖣘", "𖤍", "𜸉",
+]
+/** Pick a flourish deterministically from accumulated content (looks random across messages) */
+const flourish = (sections: string[]) => {
+  const seed = sections.reduce((n, s) => n + s.length, 0)
+  return FLOURISHES[seed % FLOURISHES.length]
+}
+
+/** Horizontal rule from box-drawing light horizontal */
+const RULE = "─".repeat(7)
+
+/** Padded separator for action rows — double em-space + glyph + double em-space */
+const ACTION_SEP_PRIMARY = `\u2003\u2003𐄁\u2003\u2003`
+const ACTION_SEP_SECONDARY = `\u2003\u2003𜸅\u2003\u2003`
+
+/** Format an action as a VS Code command link (HTML <a> for use inside centered divs) */
+const actionLink = ({label, command, args}: ActionDef, html: boolean): string => {
+  const encoded = encodeURIComponent(JSON.stringify(args))
+  if (html) return `<a href="command:${command}?${encoded}">${label}</a>`
+  return `[${label}](command:${command}?${encoded})`
+}
 
 export class HoverContentBuilder {
   private sections: string[] = []
@@ -16,8 +49,8 @@ export class HoverContentBuilder {
    * Add channel name header.
    */
   channel(channel: SlackChannel, isThread = false): this {
-    const icon = channel.isPrivate ? "🔒" : "📧"
-    const prefix = isThread ? "🧵 " : ""
+    const icon = channel.isPrivate ? "🔒" : "𐀶"
+    const prefix = isThread ? "𐛑 " : ""
     this.sections.push(`${prefix}${icon} **#${channel.name}**`)
     return this
   }
@@ -27,8 +60,8 @@ export class HoverContentBuilder {
    */
   author(user: SlackUser, message: SlackMessage, context?: string): this {
     const time = formatRelativeTime(slackTsToDate(message.ts))
-    const label = context ? `${context} by` : ""
-    this.sections.push(`**${label} @${user.displayName}** (${time}):`.replace("  ", " "))
+    const byline = context ? `${context} by @${user.displayName}` : `@${user.displayName}`
+    this.sections.push(`**${byline}** (${time}):`)
     return this
   }
 
@@ -36,7 +69,6 @@ export class HoverContentBuilder {
    * Add message text as blockquote.
    */
   message(text: string): this {
-    // Handle multi-line messages - each line needs > prefix
     const quoted = text
       .split("\n")
       .map(line => `> ${line}`)
@@ -46,13 +78,25 @@ export class HoverContentBuilder {
   }
 
   /**
-   * Add thread context (reply count).
+   * Add reply count as a subtle continuation below the message.
    */
-  threadContext(replyCount: number): this {
-    if (replyCount > 0) {
-      const word = replyCount === 1 ? "reply" : "replies"
-      this.sections.push(`_Part of thread with ${replyCount} ${word}_`)
-    }
+  replies(count: number | undefined): this {
+    if (!count || count <= 0) return this
+    const f = flourish(this.sections)
+    const word = count === 1 ? "reply" : "replies"
+    this.sections.push(`\u2003\u2003${f} _${count} ${word}_`)
+    return this
+  }
+
+  /**
+   * Add compact Linear issue metadata line.
+   */
+  linearInfo(issue: LinearIssue | undefined): this {
+    if (!issue) return this
+    const {identifier, url, title, state} = issue
+    const shortTitle = truncate(title, 50)
+    const stateIcon = state.type === "completed" ? "✓" : state.type === "canceled" ? "✗" : "◉"
+    this.sections.push(`🜃 [${identifier}](${url}) — "${shortTitle}" · ${stateIcon} ${state.name}`)
     return this
   }
 
@@ -62,16 +106,14 @@ export class HoverContentBuilder {
   files(files: SlackFile[], showInfo = true): this {
     if (!files.length) return this
 
-    this.sections.push("📎 **Files**:")
+    this.sections.push("𜱃 **Files**:")
 
     for (const file of files) {
-      // Image preview
       if (file.mimetype.startsWith("image/") && file.thumb) {
         this.sections.push(`![${file.name}](${file.thumb})`)
       }
 
-      // File link
-      const icon = file.mimetype.startsWith("image/") ? "🖼️" : "📄"
+      const icon = file.mimetype.startsWith("image/") ? "▣" : "☰"
       const url = file.url_private_download || file.url_private || file.permalink || file.url
 
       if (showInfo) {
@@ -86,32 +128,26 @@ export class HoverContentBuilder {
   }
 
   /**
-   * Add Linear issue info.
+   * Add a decorated horizontal rule separator.
    */
-  linearIssue(issue: LinearIssue): this {
-    this.sections.push(`📋 **Linear**: [${issue.identifier}](${issue.url}) - "${issue.title}"`)
-    this.sections.push(`Status: ${issue.state.name}`)
+  separator(): this {
+    const f = flourish(this.sections)
+    this.sections.push(`<div align="center">${f}\u2003${RULE}\u2003${f}</div>`)
     return this
   }
 
   /**
-   * Add a command action link.
+   * Add action rows with padded separators.
+   * Primary row uses 𐄁, secondary rows use 𜸅.
    */
-  action(label: string, command: string, args: object): this {
-    const encoded = encodeURIComponent(JSON.stringify(args))
-    this.sections.push(`[${label}](command:${command}?${encoded})`)
-    return this
-  }
-
-  /**
-   * Add multiple actions on one line.
-   */
-  actions(...actions: Array<{label: string; command: string; args: object}>): this {
-    const links = actions.map(({label, command, args}) => {
-      const encoded = encodeURIComponent(JSON.stringify(args))
-      return `[${label}](command:${command}?${encoded})`
+  actionRows(...rows: ActionDef[][]): this {
+    rows.forEach((row, i) => {
+      if (row.length > 0) {
+        const sep = i === 0 ? ACTION_SEP_PRIMARY : ACTION_SEP_SECONDARY
+        const links = row.map(a => actionLink(a, true)).join(sep)
+        this.sections.push(`<div align="center">${links}</div>`)
+      }
     })
-    this.sections.push(links.join(" | "))
     return this
   }
 

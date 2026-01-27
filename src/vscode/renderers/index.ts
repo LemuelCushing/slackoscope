@@ -2,7 +2,7 @@
  * Renderers - presentation/view layer.
  */
 
-export {HoverContentBuilder} from "./hoverContent"
+export {HoverContentBuilder, type ActionDef} from "./hoverContent"
 export {
   createInlineDecorationType,
   buildInlineContent,

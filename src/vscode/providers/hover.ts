@@ -7,7 +7,7 @@ import type {SlackLoader} from "../../slack"
 import type {LinearLoader, LinearIssue} from "../../linear"
 import type {Settings} from "../config"
 import {SlackUrlOccurrence} from "../editor"
-import {HoverContentBuilder} from "../renderers"
+import {HoverContentBuilder, type ActionDef} from "../renderers"
 
 export class HoverProvider implements vscode.HoverProvider {
   constructor(
@@ -48,60 +48,42 @@ export class HoverProvider implements vscode.HoverProvider {
       const context = url.threadTs ? (target.ts === url.threadTs ? "Thread started" : "Thread reply") : undefined
       builder.author(user, target, context)
 
-      // Message
+      // Message + reply count (tucked right below)
       builder.message(target.text)
-
-      // Thread context
-      if (replyCount > 0) {
-        builder.threadContext(replyCount)
-      }
+      builder.replies(replyCount)
 
       // Files
       if (this.settings.hover.showFiles && target.files?.length) {
         builder.files(target.files, this.settings.hover.showFileInfo)
       }
 
-      // Linear issue
+      // Linear issue detection
       const linearMetadata = await this.linearLoader.getMetadataForUrl(url, all)
       let linearIssue: LinearIssue | null = null
-
       if (linearMetadata) {
         linearIssue = await this.linearLoader.getIssue(linearMetadata.identifier)
-        if (linearIssue) {
-          builder.linearIssue(linearIssue)
-        }
       }
 
-      // Actions
-      const actions: Array<{label: string; command: string; args: object}> = [
-        {
-          label: "Insert as Comment",
-          command: "slackoscope.insertCommentedMessage",
-          args: {url: url.raw, linearIdentifier: linearIssue?.identifier},
-        },
+      // Linear info
+      builder.linearInfo(linearIssue ?? undefined)
+
+      // Actions — separated from content
+      builder.separator()
+
+      const slackActions: ActionDef[] = [
+        {label: "⨁ Insert comment", command: "slackoscope.insertCommentedMessage", args: {url: url.raw, linearIdentifier: linearIssue?.identifier}},
+        {label: "↻ Refresh", command: "slackoscope.refreshMessage", args: {url: url.raw}},
       ]
 
-      if (linearIssue) {
-        actions.push(
-          {
-            label: `Post to ${linearIssue.identifier}`,
-            command: "slackoscope.postToLinear",
-            args: {issueId: linearIssue.id, identifier: linearIssue.identifier},
-          },
-          {
-            label: "Assign to Me",
-            command: "slackoscope.assignToMe",
-            args: {issueId: linearIssue.id, identifier: linearIssue.identifier},
-          },
-          {
-            label: "Set Status",
-            command: "slackoscope.setStatus",
-            args: {issueId: linearIssue.id, identifier: linearIssue.identifier},
-          }
-        )
-      }
+      const linearActions: ActionDef[] = linearIssue
+        ? [
+            {label: `⏎ Post to ${linearIssue.identifier}`, command: "slackoscope.postToLinear", args: {issueId: linearIssue.id, identifier: linearIssue.identifier}},
+            {label: `𖨆 Assign to me`, command: "slackoscope.assignToMe", args: {issueId: linearIssue.id, identifier: linearIssue.identifier}},
+            {label: `𜳨 Set status`, command: "slackoscope.setStatus", args: {issueId: linearIssue.id, identifier: linearIssue.identifier}},
+          ]
+        : []
 
-      builder.actions(...actions)
+      builder.actionRows(slackActions, linearActions)
 
       return new vscode.Hover(builder.build())
     } catch (error) {
