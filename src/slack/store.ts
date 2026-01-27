@@ -31,6 +31,10 @@ class Cache<T> {
     this.entries.set(key, {ok: false, error})
   }
 
+  remove(key: string): boolean {
+    return this.entries.delete(key)
+  }
+
   clear(): void {
     this.entries.clear()
   }

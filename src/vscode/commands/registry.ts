@@ -20,6 +20,7 @@ import {postToLinear} from "./postToLinear"
 import {assignToMe} from "./assignToMe"
 import {setStatus} from "./setStatus"
 import {claimAndClose} from "./claimAndClose"
+import {refreshMessage} from "./refreshMessage"
 
 /**
  * Dependencies available to commands.
@@ -58,6 +59,9 @@ const COMMANDS = {
 
   claimAndClose: (deps: CommandDependencies) => (args: {issueId: string; identifier: string}) =>
     claimAndClose(deps.linearClient, deps.settings, args),
+
+  refreshMessage: (deps: CommandDependencies) => (args: {url: string}) =>
+    refreshMessage(deps.slackStore, args),
 } as const
 
 export type CommandId = keyof typeof COMMANDS

@@ -52,6 +52,11 @@
         "command": "slackoscope.claimAndClose",
         "title": "Linear: Claim & Close Issue",
         "enablement": "false"
+      },
+      {
+        "command": "slackoscope.refreshMessage",
+        "title": "Slackoscope: Refresh Message",
+        "enablement": "false"
       }
     ],
     "configuration": {
