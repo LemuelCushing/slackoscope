@@ -4,6 +4,7 @@
 
 import * as vscode from "vscode"
 import type {ILinearClient, LinearIssue} from "../../linear"
+import {LINEAR_NOT_CONFIGURED} from "./linearPostingHelpers"
 
 interface AssignToMeArgs {
   issueId: string
@@ -12,7 +13,7 @@ interface AssignToMeArgs {
 
 export async function assignToMe(linearClient: ILinearClient | null, args: AssignToMeArgs): Promise<void> {
   if (!linearClient) {
-    vscode.window.showErrorMessage("Slackoscope: Linear token not configured")
+    vscode.window.showErrorMessage(`Slackoscope: ${LINEAR_NOT_CONFIGURED}`)
     return
   }
 

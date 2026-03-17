@@ -26,7 +26,7 @@
       },
       {
         "command": "slackoscope.insertCommentedMessage",
-        "title": "Slackoscope: Insert Commented Message",
+        "title": "Slackoscope: Insert Message as Comment Below",
         "enablement": "false"
       },
       {
@@ -35,7 +35,7 @@
       },
       {
         "command": "slackoscope.postToLinear",
-        "title": "Slackoscope: Post Current File to Linear Issue",
+        "title": "Slackoscope: Post as Comment on Linear Issue",
         "enablement": "false"
       },
       {
@@ -50,7 +50,7 @@
       },
       {
         "command": "slackoscope.claimAndClose",
-        "title": "Linear: Claim & Close Issue",
+        "title": "Slackoscope: Post, Assign & Close Linear Issue",
         "enablement": "false"
       },
       {

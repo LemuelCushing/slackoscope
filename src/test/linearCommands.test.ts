@@ -69,7 +69,7 @@ suite("Linear Commands Tests", () => {
   })
 
   suite("Code Action Prefixes", () => {
-    test("should use 'Slack:' prefix for Slack actions", async () => {
+    test("should use lowercase label for insert comment action", async () => {
       const {doc} = await createTestDocument(`${TEST_SLACK_URLS.simple}\n`)
 
       await new Promise(resolve => setTimeout(resolve, 200))
@@ -84,17 +84,17 @@ suite("Linear Commands Tests", () => {
       )
 
       if (actions && actions.length > 0) {
-        const insertAction = actions.find(a => a.title.includes("Insert as Comment"))
+        const insertAction = actions.find(a => a.title.includes("comment below"))
         if (insertAction) {
           assert.ok(
-            insertAction.title.startsWith("Slack:"),
-            `Insert comment action should start with 'Slack:' but was '${insertAction.title}'`
+            insertAction.title === "Insert message as comment below",
+            `Insert comment action should be 'Insert message as comment below' but was '${insertAction.title}'`
           )
         }
       }
     })
 
-    test("should use 'Linear:' prefix for Linear actions", async () => {
+    test("should use '(Linear)' suffix for Linear actions", async () => {
       const {doc} = await createTestDocument(`${TEST_SLACK_URLS.threadParent}\n`)
 
       await new Promise(resolve => setTimeout(resolve, 300))
@@ -110,16 +110,14 @@ suite("Linear Commands Tests", () => {
 
       if (actions && actions.length > 0) {
         const linearActions = actions.filter(
-          a => a.title.includes("Post to") || a.title.includes("Assign") || a.title.includes("Set") || a.title.includes("Claim")
+          a => a.title.includes("(Linear)")
         )
 
         for (const action of linearActions) {
-          if (action.title.includes("Post to") || action.title.includes("Assign") || action.title.includes("Set") || action.title.includes("Claim")) {
-            assert.ok(
-              action.title.startsWith("Linear:"),
-              `Linear action should start with 'Linear:' but was '${action.title}'`
-            )
-          }
+          assert.ok(
+            action.title.endsWith("(Linear)"),
+            `Linear action should end with '(Linear)' but was '${action.title}'`
+          )
         }
       }
     })
@@ -139,11 +137,11 @@ suite("Linear Commands Tests", () => {
       )
 
       if (actions && actions.length > 0) {
-        const claimAndCloseAction = actions.find(a => a.title.includes("Claim & Close"))
+        const claimAndCloseAction = actions.find(a => a.title.includes("assign & close"))
         if (claimAndCloseAction) {
           assert.ok(
-            claimAndCloseAction.title.startsWith("Linear:"),
-            `Claim & Close action should start with 'Linear:'`
+            claimAndCloseAction.title.endsWith("(Linear)"),
+            `Claim & Close action should end with '(Linear)'`
           )
           assert.ok(
             claimAndCloseAction.command?.command === "slackoscope.claimAndClose",
@@ -277,8 +275,8 @@ suite("Linear Commands Tests", () => {
       assert.ok(actions && actions.length > 0, "Should provide at least one code action")
 
       // Check for insert comment action
-      const insertAction = actions.find(a => a.title.includes("Insert as Comment"))
-      assert.ok(insertAction, "Should have Insert as Comment action")
+      const insertAction = actions.find(a => a.title.includes("comment below"))
+      assert.ok(insertAction, "Should have insert comment action")
     })
 
     test("should provide Linear-specific actions when Linear issue is detected", async () => {
@@ -300,9 +298,9 @@ suite("Linear Commands Tests", () => {
         const actionTitles = actions.map(a => a.title)
 
         // Check for Linear-specific actions
-        const hasPostToLinear = actionTitles.some(t => t.includes("Post to"))
-        const hasAssignToMe = actionTitles.some(t => t.includes("Assign") && t.includes("to Me"))
-        const hasSetStatus = actionTitles.some(t => t.includes("Set") && t.includes("Status"))
+        const hasPostToLinear = actionTitles.some(t => t.includes("Post as comment on") || t.includes("Post selection as comment on"))
+        const hasAssignToMe = actionTitles.some(t => t.includes("Assign") && t.includes("to me"))
+        const hasSetStatus = actionTitles.some(t => t.includes("status") && t.includes("(Linear)"))
 
         // At least one Linear action should be present if issue was detected
         if (hasPostToLinear || hasAssignToMe || hasSetStatus) {
@@ -330,8 +328,8 @@ suite("Linear Commands Tests", () => {
         const actionTitles = actions.map(a => a.title)
 
         // Should NOT have Linear-specific actions for simple URL
-        const hasAssignToMe = actionTitles.some(t => t.includes("Assign") && t.includes("to Me"))
-        const hasSetStatus = actionTitles.some(t => t.includes("Set") && t.includes("Status"))
+        const hasAssignToMe = actionTitles.some(t => t.includes("Assign") && t.includes("to me"))
+        const hasSetStatus = actionTitles.some(t => t.includes("status") && t.includes("(Linear)"))
 
         // These should not be present for a URL without Linear issue
         assert.ok(
@@ -356,7 +354,7 @@ suite("Linear Commands Tests", () => {
       )
 
       if (actions && actions.length > 0) {
-        const insertAction = actions.find(a => a.title.includes("Insert as Comment"))
+        const insertAction = actions.find(a => a.title.includes("comment below"))
         if (insertAction?.command) {
           assert.ok(insertAction.command.command === "slackoscope.insertCommentedMessage")
           assert.ok(insertAction.command.arguments, "Should have command arguments")
@@ -464,11 +462,11 @@ suite("Linear Commands Tests", () => {
           )
           .join("\n")
 
-        // If Linear issue is detected, should have Set Status action
+        // If Linear issue is detected, should have Set status action
         if (hoverText.includes("Linear") || hoverText.includes("TST-")) {
           assert.ok(
-            hoverText.includes("Set Status") || hoverText.includes("setStatus"),
-            "Should have Set Status action when Linear issue detected"
+            hoverText.includes("Set status") || hoverText.includes("setStatus"),
+            "Should have Set status action when Linear issue detected"
           )
         }
       }
@@ -495,11 +493,11 @@ suite("Linear Commands Tests", () => {
           )
           .join("\n")
 
-        // If Linear issue is detected, should have Assign to Me action
+        // If Linear issue is detected, should have Assign to me action
         if (hoverText.includes("Linear") || hoverText.includes("TST-")) {
           assert.ok(
-            hoverText.includes("Assign to Me") || hoverText.includes("assignToMe"),
-            "Should have Assign to Me action when Linear issue detected"
+            hoverText.includes("Assign to me") || hoverText.includes("assignToMe"),
+            "Should have Assign to me action when Linear issue detected"
           )
         }
       }
