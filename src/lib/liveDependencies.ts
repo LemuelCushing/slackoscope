@@ -3,12 +3,10 @@ import type {ILinearClient, LinearLoader} from "../linear"
 import type {LoaderDependencies} from "../vscode/dependencies"
 import type {CommandDependencies} from "../vscode/commands"
 
-type LiveCommandDependencies = Pick<
+export type LiveCommandDependencies = Pick<
   CommandDependencies,
   "slackClient" | "slackLoader" | "linearClient" | "linearLoader"
 >
-
-type LiveDependencyValues = LiveCommandDependencies
 
 /**
  * Keep long-lived dependency objects pointing at the latest clients/loaders
@@ -16,7 +14,7 @@ type LiveDependencyValues = LiveCommandDependencies
  */
 export function syncLiveDependencies(
   loaderDeps: LoaderDependencies,
-  values: LiveDependencyValues,
+  values: LiveCommandDependencies,
   commandDeps?: LiveCommandDependencies
 ): void {
   Object.assign(loaderDeps, {
@@ -29,11 +27,4 @@ export function syncLiveDependencies(
   Object.assign(commandDeps, values)
 }
 
-export type {
-  LiveCommandDependencies,
-  LiveDependencyValues,
-  ISlackClient,
-  ILinearClient,
-  SlackLoader,
-  LinearLoader,
-}
+export type {ISlackClient, ILinearClient, SlackLoader, LinearLoader}

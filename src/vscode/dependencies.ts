@@ -6,7 +6,7 @@ import type {LinearLoader} from "../linear"
  *
  * The composition root mutates this object during reconfiguration so
  * providers, controllers, and command handlers all keep seeing the latest
- * loaders without needing ad-hoc update calls.
+ * loaders without ad-hoc update calls or a heavier observable layer.
  */
 export interface LoaderDependencies {
   slackLoader: SlackLoader

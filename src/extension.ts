@@ -56,8 +56,8 @@ class Slackoscope implements vscode.Disposable {
   // Loaders (fetch-or-cache)
   private slackLoader!: SlackLoader
   private linearLoader!: LinearLoader
-  private readonly loaderDeps = {} as LoaderDependencies
-  private commandDeps!: CommandDependencies
+  private loaderDeps?: LoaderDependencies
+  private commandDeps?: CommandDependencies
 
   // VS Code integrations
   private hoverProvider!: HoverProvider
@@ -92,9 +92,10 @@ class Slackoscope implements vscode.Disposable {
     this.updateLiveDependencies()
 
     // Create VS Code integrations
-    this.hoverProvider = new HoverProvider(this.loaderDeps, this.settings)
-    this.codeActionProvider = new CodeActionProvider(this.loaderDeps)
-    this.decorationController = new DecorationController(this.loaderDeps, this.settings)
+    const loaderDeps = this.getLoaderDeps()
+    this.hoverProvider = new HoverProvider(loaderDeps, this.settings)
+    this.codeActionProvider = new CodeActionProvider(loaderDeps)
+    this.decorationController = new DecorationController(loaderDeps, this.settings)
 
     this.commandDeps = {
       slackClient: this.slackClient,
@@ -161,6 +162,13 @@ class Slackoscope implements vscode.Disposable {
   }
 
   private updateLiveDependencies(): void {
+    if (!this.loaderDeps) {
+      this.loaderDeps = {
+        slackLoader: this.slackLoader,
+        linearLoader: this.linearLoader,
+      }
+    }
+
     syncLiveDependencies(
       this.loaderDeps,
       {
@@ -171,6 +179,14 @@ class Slackoscope implements vscode.Disposable {
       },
       this.commandDeps
     )
+  }
+
+  private getLoaderDeps(): LoaderDependencies {
+    if (!this.loaderDeps) {
+      throw new Error("Slackoscope loader dependencies have not been initialized")
+    }
+
+    return this.loaderDeps
   }
 
   private async resolveToken(raw: string | undefined): Promise<string | undefined> {

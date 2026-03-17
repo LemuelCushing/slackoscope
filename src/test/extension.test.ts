@@ -284,11 +284,11 @@ suite("Slackoscope Extension E2E Tests", () => {
 
   suite("Reconfiguration", () => {
     test("should update hover and commands to use reconfigured loaders", async () => {
-      const factory = getTestMocks()
-      assert.ok(factory, "Test client factory should be registered")
+      const registeredFactory = getTestMocks()
+      assert.ok(registeredFactory, "Test client factory should be registered")
+      const factory = registeredFactory
 
-      const originalCreateSlackClient = factory!.createSlackClient
-      const originalCreateLinearClient = factory!.createLinearClient
+      const originalCreateSlackClient = factory.createSlackClient
 
       class ReconfiguredSlackClient extends MockSlackClient {
         override async getMessage(channelId: string, ts: string) {
@@ -298,7 +298,7 @@ suite("Slackoscope Extension E2E Tests", () => {
       }
 
       try {
-        factory!.createSlackClient = () => new ReconfiguredSlackClient()
+        factory.createSlackClient = () => new ReconfiguredSlackClient()
 
         await vscode.commands.executeCommand("slackoscope.clearCache")
         await vscode.commands.executeCommand("slackoscope._forceReconfigure")
@@ -327,8 +327,7 @@ suite("Slackoscope Extension E2E Tests", () => {
           "Commands should use the reconfigured Slack loader"
         )
       } finally {
-        factory!.createSlackClient = originalCreateSlackClient
-        factory!.createLinearClient = originalCreateLinearClient
+        factory.createSlackClient = originalCreateSlackClient
         await vscode.commands.executeCommand("slackoscope.clearCache")
         await vscode.commands.executeCommand("slackoscope._forceReconfigure")
       }
