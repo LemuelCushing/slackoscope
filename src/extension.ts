@@ -56,7 +56,7 @@ class Slackoscope implements vscode.Disposable {
   // Loaders (fetch-or-cache)
   private slackLoader!: SlackLoader
   private linearLoader!: LinearLoader
-  private loaderDeps?: LoaderDependencies
+  private readonly loaderDeps: LoaderDependencies = {} as LoaderDependencies
   private commandDeps?: CommandDependencies
 
   // VS Code integrations
@@ -87,15 +87,12 @@ class Slackoscope implements vscode.Disposable {
     await this.buildClients()
 
     // Create loaders
-    this.slackLoader = new SlackLoader(this.slackClient, this.slackStore)
-    this.linearLoader = new LinearLoader(this.linearClient, this.linearStore)
-    this.updateLiveDependencies()
+    this.rebuildLoaders()
 
     // Create VS Code integrations
-    const loaderDeps = this.getLoaderDeps()
-    this.hoverProvider = new HoverProvider(loaderDeps, this.settings)
-    this.codeActionProvider = new CodeActionProvider(loaderDeps)
-    this.decorationController = new DecorationController(loaderDeps, this.settings)
+    this.hoverProvider = new HoverProvider(this.loaderDeps, this.settings)
+    this.codeActionProvider = new CodeActionProvider(this.loaderDeps)
+    this.decorationController = new DecorationController(this.loaderDeps, this.settings)
 
     this.commandDeps = {
       slackClient: this.slackClient,
@@ -154,20 +151,12 @@ class Slackoscope implements vscode.Disposable {
 
   private async reconfigure(): Promise<void> {
     await this.buildClients()
-
-    // Update loaders with new clients
-    this.slackLoader = new SlackLoader(this.slackClient, this.slackStore)
-    this.linearLoader = new LinearLoader(this.linearClient, this.linearStore)
-    this.updateLiveDependencies()
+    this.rebuildLoaders()
   }
 
-  private updateLiveDependencies(): void {
-    if (!this.loaderDeps) {
-      this.loaderDeps = {
-        slackLoader: this.slackLoader,
-        linearLoader: this.linearLoader,
-      }
-    }
+  private rebuildLoaders(): void {
+    this.slackLoader = new SlackLoader(this.slackClient, this.slackStore)
+    this.linearLoader = new LinearLoader(this.linearClient, this.linearStore)
 
     syncLiveDependencies(
       this.loaderDeps,
@@ -179,14 +168,6 @@ class Slackoscope implements vscode.Disposable {
       },
       this.commandDeps
     )
-  }
-
-  private getLoaderDeps(): LoaderDependencies {
-    if (!this.loaderDeps) {
-      throw new Error("Slackoscope loader dependencies have not been initialized")
-    }
-
-    return this.loaderDeps
   }
 
   private async resolveToken(raw: string | undefined): Promise<string | undefined> {
