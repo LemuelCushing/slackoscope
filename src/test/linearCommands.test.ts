@@ -173,20 +173,18 @@ suite("Linear Commands Tests", () => {
 
   suite("setStatus Command", () => {
     test("should execute without error with valid issue", async () => {
-      // The command requires user interaction (quick pick), so we just verify it doesn't crash
-      // when called with valid arguments (the quick pick will be cancelled in test mode)
       const issue = TEST_LINEAR_ISSUES["ENG-1234"]
 
-      // Execute the command - it will fail gracefully since we can't interact with quick pick
-      try {
-        await vscode.commands.executeCommand("slackoscope.setStatus", {
-          issueId: issue.id,
-          identifier: issue.identifier
-        })
-      } catch (error) {
-        // Expected - quick pick cancelled or other UI interaction needed
-        assert.ok(error instanceof Error, "Should throw an error when quick pick is cancelled")
-      }
+      // Dismiss the quick pick after it appears so the command can complete
+      setTimeout(() => vscode.commands.executeCommand("workbench.action.closeQuickOpen"), 500)
+
+      await vscode.commands.executeCommand("slackoscope.setStatus", {
+        issueId: issue.id,
+        identifier: issue.identifier
+      })
+
+      // Command returned without error (quick pick was dismissed, returning undefined)
+      assert.ok(true, "setStatus should handle dismissed quick pick gracefully")
     })
 
     test("should show error when Linear token is not configured", async () => {

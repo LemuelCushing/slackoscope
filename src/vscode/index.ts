@@ -4,6 +4,7 @@
 
 // Config
 export {Settings, type InlineSettings, type HoverSettings, type HighlightingSettings} from "./config"
+export type {LoaderDependencies} from "./dependencies"
 
 // Editor
 export {SlackUrlOccurrence} from "./editor"
