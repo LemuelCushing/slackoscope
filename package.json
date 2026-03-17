@@ -7,7 +7,7 @@
   },
   "icon": "logo_gemini.png",
   "description": "Take a peek at slack msgs from inside your code. For those with no short term memory",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "engines": {
     "vscode": "^1.91.0"
   },
