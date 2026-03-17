@@ -4,6 +4,8 @@ import "./setup"
 import * as assert from "assert"
 import * as vscode from "vscode"
 import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
+import {MockSlackClient} from "./mocks"
+import {getTestMocks} from "./testRegistry"
 import {parseSlackUrl} from "../slack"
 
 suite("Slackoscope Extension E2E Tests", () => {
@@ -277,6 +279,59 @@ suite("Slackoscope Extension E2E Tests", () => {
 
       assert.ok(tokenConfig, "Token configuration should exist")
       assert.strictEqual(typeof tokenConfig?.defaultValue, "string", "Token should have a string default value")
+    })
+  })
+
+  suite("Reconfiguration", () => {
+    test("should update hover and commands to use reconfigured loaders", async () => {
+      const factory = getTestMocks()
+      assert.ok(factory, "Test client factory should be registered")
+
+      const originalCreateSlackClient = factory!.createSlackClient
+      const originalCreateLinearClient = factory!.createLinearClient
+
+      class ReconfiguredSlackClient extends MockSlackClient {
+        override async getMessage(channelId: string, ts: string) {
+          const message = await super.getMessage(channelId, ts)
+          return {...message, channel: channelId, text: "Reconfigured Slack message content"}
+        }
+      }
+
+      try {
+        factory!.createSlackClient = () => new ReconfiguredSlackClient()
+
+        await vscode.commands.executeCommand("slackoscope.clearCache")
+        await vscode.commands.executeCommand("slackoscope._forceReconfigure")
+
+        const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890999999"
+        const {doc, editor} = await createTestDocument(`${slackUrl}\n`)
+
+        const urlPosition = doc.positionAt(10)
+        const hovers = await getHoverContent(doc, urlPosition)
+        const hoverText = extractHoverText(hovers)
+
+        assert.ok(
+          hoverText.includes("Reconfigured Slack message content"),
+          "Hover should use the reconfigured Slack loader"
+        )
+
+        await vscode.commands.executeCommand("slackoscope.insertCommentedMessage", {
+          url: slackUrl,
+          lineNumber: 0
+        })
+
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+        assert.ok(
+          editor.document.getText().includes("Reconfigured Slack message content"),
+          "Commands should use the reconfigured Slack loader"
+        )
+      } finally {
+        factory!.createSlackClient = originalCreateSlackClient
+        factory!.createLinearClient = originalCreateLinearClient
+        await vscode.commands.executeCommand("slackoscope.clearCache")
+        await vscode.commands.executeCommand("slackoscope._forceReconfigure")
+      }
     })
   })
 

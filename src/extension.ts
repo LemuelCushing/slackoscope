@@ -12,7 +12,16 @@
 import * as vscode from "vscode"
 import {SlackClient, SlackStore, SlackLoader, type ISlackClient} from "./slack"
 import {LinearClient, LinearStore, LinearLoader, type ILinearClient} from "./linear"
-import {Settings, HoverProvider, CodeActionProvider, DecorationController, registerCommands} from "./vscode"
+import {syncLiveDependencies} from "./lib/liveDependencies"
+import {
+  Settings,
+  HoverProvider,
+  CodeActionProvider,
+  DecorationController,
+  registerCommands,
+  type LoaderDependencies,
+  type CommandDependencies,
+} from "./vscode"
 
 // 1Password integration (optional)
 import {OnePasswordApi} from "./api/onePasswordApi"
@@ -47,6 +56,8 @@ class Slackoscope implements vscode.Disposable {
   // Loaders (fetch-or-cache)
   private slackLoader!: SlackLoader
   private linearLoader!: LinearLoader
+  private readonly loaderDeps = {} as LoaderDependencies
+  private commandDeps!: CommandDependencies
 
   // VS Code integrations
   private hoverProvider!: HoverProvider
@@ -78,11 +89,23 @@ class Slackoscope implements vscode.Disposable {
     // Create loaders
     this.slackLoader = new SlackLoader(this.slackClient, this.slackStore)
     this.linearLoader = new LinearLoader(this.linearClient, this.linearStore)
+    this.updateLiveDependencies()
 
     // Create VS Code integrations
-    this.hoverProvider = new HoverProvider(this.slackLoader, this.linearLoader, this.settings)
-    this.codeActionProvider = new CodeActionProvider(this.slackLoader, this.linearLoader)
-    this.decorationController = new DecorationController(this.slackLoader, this.linearLoader, this.settings)
+    this.hoverProvider = new HoverProvider(this.loaderDeps, this.settings)
+    this.codeActionProvider = new CodeActionProvider(this.loaderDeps)
+    this.decorationController = new DecorationController(this.loaderDeps, this.settings)
+
+    this.commandDeps = {
+      slackClient: this.slackClient,
+      slackStore: this.slackStore,
+      slackLoader: this.slackLoader,
+      linearClient: this.linearClient,
+      linearStore: this.linearStore,
+      linearLoader: this.linearLoader,
+      decorationController: this.decorationController,
+      settings: this.settings,
+    }
 
     // Register providers
     this.disposables.push(
@@ -93,16 +116,7 @@ class Slackoscope implements vscode.Disposable {
     )
 
     // Register commands
-    registerCommands(this.context, {
-      slackClient: this.slackClient,
-      slackStore: this.slackStore,
-      slackLoader: this.slackLoader,
-      linearClient: this.linearClient,
-      linearStore: this.linearStore,
-      linearLoader: this.linearLoader,
-      decorationController: this.decorationController,
-      settings: this.settings,
-    })
+    registerCommands(this.context, this.commandDeps)
 
     // Subscribe to settings changes
     this.disposables.push(
@@ -143,14 +157,20 @@ class Slackoscope implements vscode.Disposable {
     // Update loaders with new clients
     this.slackLoader = new SlackLoader(this.slackClient, this.slackStore)
     this.linearLoader = new LinearLoader(this.linearClient, this.linearStore)
+    this.updateLiveDependencies()
+  }
 
-    // Update providers
-    this.hoverProvider.updateSlackLoader(this.slackLoader)
-    this.hoverProvider.updateLinearLoader(this.linearLoader)
-    this.codeActionProvider.updateSlackLoader(this.slackLoader)
-    this.codeActionProvider.updateLinearLoader(this.linearLoader)
-    this.decorationController.updateSlackLoader(this.slackLoader)
-    this.decorationController.updateLinearLoader(this.linearLoader)
+  private updateLiveDependencies(): void {
+    syncLiveDependencies(
+      this.loaderDeps,
+      {
+        slackClient: this.slackClient,
+        slackLoader: this.slackLoader,
+        linearClient: this.linearClient,
+        linearLoader: this.linearLoader,
+      },
+      this.commandDeps
+    )
   }
 
   private async resolveToken(raw: string | undefined): Promise<string | undefined> {

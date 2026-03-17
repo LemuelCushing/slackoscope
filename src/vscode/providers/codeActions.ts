@@ -3,8 +3,7 @@
  */
 
 import * as vscode from "vscode"
-import type {SlackLoader} from "../../slack"
-import type {LinearLoader} from "../../linear"
+import type {LoaderDependencies} from "../dependencies"
 import {SlackUrlOccurrence} from "../editor"
 
 /** Code action definition */
@@ -24,18 +23,7 @@ const toCodeAction = ({title, command, args}: ActionDef): vscode.CodeAction => {
 export class CodeActionProvider implements vscode.CodeActionProvider {
   static readonly providedCodeActionKinds = [vscode.CodeActionKind.RefactorInline]
 
-  constructor(
-    private slackLoader: SlackLoader,
-    private linearLoader: LinearLoader
-  ) {}
-
-  updateSlackLoader(loader: SlackLoader): void {
-    this.slackLoader = loader
-  }
-
-  updateLinearLoader(loader: LinearLoader): void {
-    this.linearLoader = loader
-  }
+  constructor(private readonly deps: LoaderDependencies) {}
 
   async provideCodeActions(
     document: vscode.TextDocument,
@@ -51,11 +39,11 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
 
     // Check for Linear issue
     try {
-      const {all} = await this.slackLoader.getMessagesForUrl(url)
-      const metadata = await this.linearLoader.getMetadataForUrl(url, all)
+      const {all} = await this.deps.slackLoader.getMessagesForUrl(url)
+      const metadata = await this.deps.linearLoader.getMetadataForUrl(url, all)
 
       if (metadata) {
-        const issue = await this.linearLoader.getIssue(metadata.identifier)
+        const issue = await this.deps.linearLoader.getIssue(metadata.identifier)
         if (issue) {
           const {id: issueId, identifier} = issue
           actions.push(
