@@ -179,6 +179,12 @@
           "order": 50,
           "markdownDescription": "**State types considered 'Done'** — Used for warning decorations and Claim & Close. Linear state types: `backlog`, `unstarted`, `started`, `completed`, `canceled`"
         },
+        "slackoscope.linear.postFromUrlLine": {
+          "type": "boolean",
+          "default": true,
+          "order": 52,
+          "markdownDescription": "**Post from URL line** — When no text is selected, show a picker to choose between posting from the Slack URL line to end of file, or the entire file. When disabled, always posts the entire file."
+        },
         "slackoscope.linear.showTicketWarnings": {
           "type": "boolean",
           "default": true,

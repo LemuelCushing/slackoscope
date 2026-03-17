@@ -316,7 +316,9 @@ suite("Slackoscope Extension Behavioral Tests", () => {
       const hovers2 = await getHoverContent(doc, urlPosition2)
       const hoverText2 = extractHoverText(hovers2)
 
-      assert.strictEqual(hoverText1, hoverText2, "Cached messages should return same content")
+      // Strip line-number params from action links — they naturally differ per occurrence
+      const normalize = (text: string) => text.replace(/%22lineNumber%22%3A\d+/g, "%22lineNumber%22%3A0")
+      assert.strictEqual(normalize(hoverText1), normalize(hoverText2), "Cached messages should return same content")
     })
 
     test("should clear cache when command is executed", async () => {

@@ -62,8 +62,15 @@ export async function insertComment(deps: InsertCommentDeps, args: InsertComment
 
     // Insert at the line after the URL (or specified line)
     const line = args.lineNumber ?? editor.selection.active.line
-    const position = new vscode.Position(line + 1, 0)
+    const {document} = editor
 
+    // EOF fix: if the target line is the last line, append a newline first
+    if (line + 1 >= document.lineCount) {
+      const lastLine = document.lineAt(document.lineCount - 1)
+      await editor.edit(edit => edit.insert(lastLine.range.end, "\n"))
+    }
+
+    const position = new vscode.Position(line + 1, 0)
     await editor.insertSnippet(snippet, position)
   } catch (error) {
     if (error instanceof Error) {

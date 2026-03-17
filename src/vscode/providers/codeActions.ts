@@ -34,7 +34,7 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
 
     const {url} = occurrence
     const actions: ActionDef[] = [
-      {title: "Slack: Insert as Comment", command: "slackoscope.insertCommentedMessage", args: {url: url.raw}},
+      {title: "Insert message as comment below", command: "slackoscope.insertCommentedMessage", args: {url: url.raw, lineNumber: occurrence.range.start.line}},
     ]
 
     // Check for Linear issue
@@ -46,11 +46,17 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
         const issue = await this.deps.linearLoader.getIssue(metadata.identifier)
         if (issue) {
           const {id: issueId, identifier} = issue
+          const fromLine = occurrence.range.start.line
+          const hasSelection = !range.isEmpty
+          const postLabel = hasSelection ? `Post selection as comment on ${identifier} (Linear)` : `Post as comment on ${identifier} (Linear)`
+          const claimLabel = hasSelection
+            ? `Post selection, assign & close ${identifier} (Linear)`
+            : `Post snippet, assign & close ${identifier} (Linear)`
           actions.push(
-            {title: `Linear: Post to ${identifier}`, command: "slackoscope.postToLinear", args: {issueId, identifier}},
-            {title: `Linear: Assign ${identifier} to Me`, command: "slackoscope.assignToMe", args: {issueId, identifier}},
-            {title: `Linear: Set ${identifier} Status`, command: "slackoscope.setStatus", args: {issueId, identifier}},
-            {title: `Linear: Claim & Close ${identifier}`, command: "slackoscope.claimAndClose", args: {issueId, identifier}}
+            {title: postLabel, command: "slackoscope.postToLinear", args: {issueId, identifier, fromLine}},
+            {title: `Assign ${identifier} to me (Linear)`, command: "slackoscope.assignToMe", args: {issueId, identifier}},
+            {title: `Set ${identifier} status (Linear)`, command: "slackoscope.setStatus", args: {issueId, identifier}},
+            {title: claimLabel, command: "slackoscope.claimAndClose", args: {issueId, identifier, fromLine}}
           )
         }
       }
