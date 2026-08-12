@@ -490,13 +490,25 @@ That suite is the one that runs anywhere, in milliseconds, without stealing focu
 
 ### Running Tests Programmatically
 
-`npm run test:unit` is fully headless and takes well under a second. `npm test` runs
-that first, then opens a real VS Code window for the integration suite.
+| command | what it does | opens a window? |
+|---|---|---|
+| `npm run test:unit` | unit suite in plain mocha, ~1s | no |
+| `npm run test:integration` | integration suite in a real editor | **yes**, on macOS |
+| `npm test` | both | yes (via the second) |
+
+Default to `npm run test:unit`. Nothing else in the toolchain launches VS Code, so
+`compile`, `lint`, `check-types` and `package` are all safe to run freely.
 
 **There is no headless mode for the integration suite on macOS.** `@vscode/test-electron`
 spawns the Electron binary directly, VS Code has no offscreen path, and `xvfb` is X11-only.
-If you need the integration suite headless, that means Linux (`xvfb-run -a npm test`) or a
-container — not a flag. Prefer moving the test into the unit suite instead.
+Patching the downloaded build's `Info.plist` with `LSUIElement` (which would stop it
+stealing focus) does not work either — macOS refuses to modify a signed app bundle, even
+with the sandbox off. Locally, the window is unavoidable; the fix is to not need it.
+
+**CI runs the full suite headless on Ubuntu under `xvfb`** (`.github/workflows/ci.yml`),
+so the integration suite is genuinely exercised on every push and PR without anyone
+watching a window open. Treat CI as the place the integration suite runs, and the unit
+suite as the local loop.
 
 **Configuration** (`.vscode-test.mjs`):
 ```javascript

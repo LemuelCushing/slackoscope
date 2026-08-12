@@ -205,11 +205,11 @@
     "compile-tests": "npm run clean-tests && tsc -p tsconfig.test.json",
     "clean-tests": "node -e \"require('fs').rmSync('out', {recursive: true, force: true})\"",
     "watch-tests": "tsc -p tsconfig.test.json -w",
-    "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src --ext ts",
-    "test": "npm run test:unit && vscode-test",
-    "test:unit": "npm run compile-tests && mocha --ui tdd --require out/test/stubs/install.js \"out/test/unit/**/*.test.js\""
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "npm run compile-tests && mocha --ui tdd --require out/test/stubs/install.js \"out/test/unit/**/*.test.js\"",
+    "test:integration": "npm run compile && npm run compile-tests && vscode-test"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",
