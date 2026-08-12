@@ -445,67 +445,79 @@ npm run test             # Full: both suites in a real VS Code instance
 ```
 
 **Test layout** — split by what a test needs:
-- `src/test/unit/` — no `vscode` import. Runs in plain mocha via `npm run test:unit`:
-  no VS Code download, no Electron, no display server. Use this as the inner loop.
-- `src/test/integration/` — drives the real editor (documents, commands, hovers).
-  Requires `vscode-test`, which downloads a VS Code build from
-  `update.code.visualstudio.com` on first run. On Linux run it headlessly with
-  `xvfb-run -a npm test`.
+- `src/test/unit/` — runs in plain mocha via `npm run test:unit`: no VS Code download,
+  no Electron, no window, no display server. This is the inner loop.
+  Unit tests **may** import `vscode`: `src/test/stubs/install.ts` (loaded through
+  mocha's `--require`) points `require("vscode")` at `src/test/stubs/vscode.ts`, an
+  in-memory implementation of the slice of the API this extension uses. So anything
+  under `src/vscode/**` can be tested here as long as it doesn't need real rendering.
+- `src/test/integration/` — drives the real editor (rendered hovers, decorations,
+  snippet insertion, the extension host's own activation). Requires `vscode-test`,
+  which downloads a VS Code build from `update.code.visualstudio.com` on first run and
+  opens a real window. There is no headless mode for this on macOS — Electron has no
+  offscreen path there and `xvfb` is X11-only — so keep this suite small and run it
+  before pushing, not on every save. On Linux, `xvfb-run -a npm test`.
 - Shared helpers (`fixtures.ts`, `mocks.ts`, `setup.ts`, `testRegistry.ts`,
   `testUtils.ts`) stay in `src/test/`. Files in the two subdirectories import them
   as `../fixtures`, and reach source as `../../slack`.
 
-When adding a test, put it in `unit/` unless it genuinely needs the editor —
-that suite is the one that can run anywhere.
+`npm test` runs the unit suite first, then the integration suite; `npm run test:unit`
+runs the fast half alone.
+
+**The stub reads its configuration defaults straight out of `package.json`**
+(`contributes.configuration.properties`), so a default that drifts in the manifest
+fails the unit tests too — don't duplicate defaults into the stub.
+
+When adding a test, put it in `unit/` unless it genuinely needs a rendered editor.
+That suite is the one that runs anywhere, in milliseconds, without stealing focus.
 
 ### Test Coverage
 
-**Unit Tests** (`slackApi.test.ts`):
-- Slack URL regex pattern validation
-- URL parsing and timestamp conversion
-- Multiple URL formats and edge cases
-- Invalid URL handling
+**Unit suite** (`src/test/unit/`, runs against the `vscode` stub):
+- Slack URL regex, parsing, and timestamp conversion (`slackApi.test.ts`)
+- Linear issue detection and the Linear client (`linear.test.ts`, `linearClient.test.ts`)
+- Settings: manifest defaults, font-size clamping, snapshot/refresh semantics,
+  change notifications (`settings.test.ts`)
+- Linear commands: registration against the manifest, the code actions and hover
+  links that offer them, quick-pick contents, and the messages each command
+  surfaces (`linearCommands.test.ts`)
 
-**E2E Tests** (`extension.test.ts`):
-- Extension activation and command registration
-- Toggle inline message functionality
-- Hover provider registration
-- Configuration management
-- Multi-language support (JavaScript, Python, TypeScript, Go, Rust)
-- Error handling for malformed URLs
-- Message caching behavior
+**Integration suite** (`src/test/integration/`, real editor):
+- Extension activation in a real host
+- `$LINE_COMMENT` resolution across languages — the thing only VS Code can do
+- Rendered hovers and decorations
+- Toggle inline message behaviour
 
-### Programmatic Testing (No Manual VS Code Required)
+### Running Tests Programmatically
 
-The extension uses `@vscode/test-cli` which allows fully automated testing:
+`npm run test:unit` is fully headless and takes well under a second. `npm test` runs
+that first, then opens a real VS Code window for the integration suite.
 
-**How it works**:
-1. Tests run in a headless VS Code instance (Electron)
-2. No manual VS Code window interaction required
-3. Perfect for CI/CD pipelines and automated workflows
-4. Tests can be run by LLM agents or automation tools
-
-**Key benefits for AI agents**:
-- Tests execute via `npm test` command
-- Results are captured in terminal output
-- No GUI interaction needed
-- Exit codes indicate test success/failure
+**There is no headless mode for the integration suite on macOS.** `@vscode/test-electron`
+spawns the Electron binary directly, VS Code has no offscreen path, and `xvfb` is X11-only.
+If you need the integration suite headless, that means Linux (`xvfb-run -a npm test`) or a
+container — not a flag. Prefer moving the test into the unit suite instead.
 
 **Configuration** (`.vscode-test.mjs`):
 ```javascript
-import {defineConfig} from '@vscode/test-cli'
-
 export default defineConfig({
-  files: 'out/test/**/*.test.js'
+  files: 'out/test/integration/**/*.test.js'
 })
 ```
 
+Keep that glob scoped to `integration/`. The unit suite depends on `require("vscode")`
+resolving to the stub, which it will not do inside a real extension host.
+
+**Watch out for `.vscode-test/user-data`** — it survives between integration runs, so a
+test that writes a Global setting and forgets to restore it silently poisons later runs.
+Assert against `inspect(key).defaultValue` when you mean "what the manifest declares".
+
 ### Writing New Tests
 
-**Unit test pattern** (no VS Code API):
+**Unit test pattern** (pure logic):
 ```typescript
 import * as assert from "assert"
-import {SLACK_URL_REGEX} from "../slackApi"
+import {SLACK_URL_REGEX} from "../../slack"
 
 suite("Unit Tests", () => {
   test("should test pure logic", () => {
@@ -514,6 +526,31 @@ suite("Unit Tests", () => {
   })
 })
 ```
+
+**Unit test pattern** (VS Code API, via the stub). Activate the extension in-process
+and assert on what the user would actually see — `shownMessages` records the
+information/warning/error messages, `quickPicks` records what was offered, and
+`answerQuickPick` scripts the reply:
+```typescript
+import * as vscode from "vscode"
+import {answerQuickPick, createExtensionContext, reset, shownMessages} from "../stubs/vscode"
+import {activate} from "../../extension"
+
+teardown(() => reset())   // clears settings, commands, providers, recorded messages
+
+test("reports the new status", async () => {
+  await vscode.workspace.getConfiguration("slackoscope").update("token", "t", vscode.ConfigurationTarget.Global)
+  await activate(createExtensionContext() as never)
+
+  answerQuickPick({label: "Done", description: "completed", detail: "state-done"})
+  await vscode.commands.executeCommand("slackoscope.setStatus", {issueId: "id", identifier: "ENG-1"})
+
+  assert.deepStrictEqual(shownMessages.information, ["Slackoscope: Updated MOCK-123 status to Done"])
+})
+```
+
+These commands never throw — they report through `showErrorMessage`. Asserting that a
+command "didn't throw" therefore tests nothing; assert on `shownMessages` instead.
 
 **E2E test pattern** (with VS Code API):
 ```typescript
