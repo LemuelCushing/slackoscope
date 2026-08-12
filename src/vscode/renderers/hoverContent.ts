@@ -35,10 +35,19 @@ const RULE = "─".repeat(7)
 const ACTION_SEP_PRIMARY = `\u2003\u2003𐄁\u2003\u2003`
 const ACTION_SEP_SECONDARY = `\u2003\u2003𜸅\u2003\u2003`
 
-/** Format an action as a VS Code command link (HTML <a> for use inside centered divs) */
-const actionLink = ({label, command, args}: ActionDef, html: boolean): string => {
+/** Leading pad for action rows, matching the indent `replies()` uses */
+const ACTION_INDENT = `\u2003\u2003`
+
+/**
+ * Format an action as a VS Code command link.
+ *
+ * Must be markdown link syntax. A raw HTML `<a href="command:...">` survives
+ * sanitization while the MarkdownString is trusted, but VS Code only wires up
+ * click handling for links it generated from markdown itself — an HTML anchor
+ * renders as a link and then does nothing when clicked.
+ */
+const actionLink = ({label, command, args}: ActionDef): string => {
   const encoded = encodeURIComponent(JSON.stringify(args))
-  if (html) return `<a href="command:${command}?${encoded}">${label}</a>`
   return `[${label}](command:${command}?${encoded})`
 }
 
@@ -139,13 +148,17 @@ export class HoverContentBuilder {
   /**
    * Add action rows with padded separators.
    * Primary row uses 𐄁, secondary rows use 𜸅.
+   *
+   * Rows are indented rather than wrapped in a centering `<div>`: markdown
+   * inside a raw HTML block is not parsed, and command links only work as
+   * markdown, so the two cannot be combined.
    */
   actionRows(...rows: ActionDef[][]): this {
     rows.forEach((row, i) => {
       if (row.length > 0) {
         const sep = i === 0 ? ACTION_SEP_PRIMARY : ACTION_SEP_SECONDARY
-        const links = row.map(a => actionLink(a, true)).join(sep)
-        this.sections.push(`<div align="center">${links}</div>`)
+        const links = row.map(actionLink).join(sep)
+        this.sections.push(`${ACTION_INDENT}${links}`)
       }
     })
     return this

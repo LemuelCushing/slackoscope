@@ -71,7 +71,7 @@ export class HoverProvider implements vscode.HoverProvider {
       builder.separator()
 
       const slackActions: ActionDef[] = [
-        {label: "⨁ Insert comment", command: "slackoscope.insertCommentedMessage", args: {url: url.raw, linearIdentifier: linearIssue?.identifier}},
+        {label: "⨁ Insert comment", command: "slackoscope.insertCommentedMessage", args: {url: url.raw, lineNumber: occurrence.range.end.line, linearIdentifier: linearIssue?.identifier}},
         {label: "↻ Refresh", command: "slackoscope.refreshMessage", args: {url: url.raw}},
       ]
 

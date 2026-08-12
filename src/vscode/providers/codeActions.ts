@@ -46,7 +46,11 @@ export class CodeActionProvider implements vscode.CodeActionProvider {
 
     const {url} = occurrence
     const actions: ActionDef[] = [
-      {title: "Slack: Insert as Comment", command: "slackoscope.insertCommentedMessage", args: {url: url.raw}},
+      {
+        title: "Slack: Insert as Comment",
+        command: "slackoscope.insertCommentedMessage",
+        args: {url: url.raw, lineNumber: occurrence.range.end.line}
+      }
     ]
 
     // Check for Linear issue
