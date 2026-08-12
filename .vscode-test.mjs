@@ -1,9 +1,10 @@
 import { defineConfig } from '@vscode/test-cli'
 
 export default defineConfig({
-	// Both suites run here; `npm run test:unit` runs out/test/unit alone, in plain
-	// mocha, with no VS Code download or display server needed.
-	files: 'out/test/**/*.test.js',
+	// Integration only. The unit suite runs in plain mocha against the `vscode` stub
+	// (src/test/stubs), which would collide with the real API in here — `npm test`
+	// runs it first, or `npm run test:unit` on its own.
+	files: 'out/test/integration/**/*.test.js',
 	// Set environment variables before tests run
 	env: {
 		NODE_ENV: 'test'
