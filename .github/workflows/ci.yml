@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # Ubuntu, not macOS: VS Code's integration suite needs a display server, and xvfb
+    # is the only way to give it one without a visible window. There is no equivalent
+    # on macOS — Electron has no offscreen path there — so the full suite runs here.
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Integration tests
+        run: xvfb-run -a npm run test:integration

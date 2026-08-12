@@ -1,0 +1,61 @@
+name: Publish
+
+# Releases are cut by pushing a tag:
+#
+#   npm version patch        # bumps package.json and creates the v… tag
+#   git push --follow-tags
+#
+# Requires a VSCE_PAT repository secret — an Azure DevOps personal access token with
+# Marketplace > Manage scope, for the LemuelCushing publisher.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    # Needed to create the GitHub release at the end.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # A tag that disagrees with the manifest would publish a version nobody can
+      # trace back to a commit. Fail before anything reaches the Marketplace.
+      - name: Tag must match package.json version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          manifest=$(node -p "require('./package.json').version")
+          if [ "$tag" != "$manifest" ]; then
+            echo "tag ${GITHUB_REF_NAME} implies ${tag}, package.json says ${manifest}"
+            exit 1
+          fi
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Integration tests
+        run: xvfb-run -a npm run test:integration
+
+      - name: Package
+        run: npx vsce package --out "slackoscope-${GITHUB_REF_NAME#v}.vsix"
+
+      - name: Publish to the Marketplace
+        run: npx vsce publish --packagePath "slackoscope-${GITHUB_REF_NAME#v}.vsix"
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Attach the vsix to a GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: slackoscope-*.vsix
+          generate_release_notes: true
