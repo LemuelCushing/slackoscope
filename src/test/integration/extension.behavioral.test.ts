@@ -1,10 +1,10 @@
 // Setup must be imported FIRST to register mocks before extension activation
-import "./setup"
+import "../setup"
 
 import * as assert from "assert"
 import * as vscode from "vscode"
-import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
-import {TEST_SLACK_URLS} from "./fixtures"
+import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "../testUtils"
+import {TEST_SLACK_URLS} from "../fixtures"
 
 suite("Slackoscope Extension Behavioral Tests", () => {
   // Set tokens once before all tests in this suite

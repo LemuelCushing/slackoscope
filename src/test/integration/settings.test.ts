@@ -1,10 +1,10 @@
 // Setup must be imported FIRST to register mocks before extension activation
-import "./setup"
+import "../setup"
 
 import * as assert from "assert"
 import * as vscode from "vscode"
-import {closeAllEditors, createTestDocument} from "./testUtils"
-import {Settings} from "../vscode"
+import {closeAllEditors, createTestDocument} from "../testUtils"
+import {Settings} from "../../vscode"
 
 suite("Settings Behavioral Tests", () => {
   setup(async () => {

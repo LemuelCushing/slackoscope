@@ -1,6 +1,8 @@
 import { defineConfig } from '@vscode/test-cli'
 
 export default defineConfig({
+	// Both suites run here; `npm run test:unit` runs out/test/unit alone, in plain
+	// mocha, with no VS Code download or display server needed.
 	files: 'out/test/**/*.test.js',
 	// Set environment variables before tests run
 	env: {

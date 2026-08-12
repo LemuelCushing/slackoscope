@@ -1,5 +1,5 @@
 import * as assert from "assert"
-import {SLACK_URL_REGEX} from "../slack"
+import {SLACK_URL_REGEX} from "../../slack"
 
 suite("Slack API Unit Tests", () => {
   suite("SLACK_URL_REGEX", () => {

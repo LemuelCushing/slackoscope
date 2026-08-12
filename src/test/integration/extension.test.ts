@@ -1,10 +1,10 @@
 // Setup must be imported FIRST to register mocks before extension activation
-import "./setup"
+import "../setup"
 
 import * as assert from "assert"
 import * as vscode from "vscode"
-import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
-import {parseSlackUrl} from "../slack"
+import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "../testUtils"
+import {parseSlackUrl} from "../../slack"
 
 suite("Slackoscope Extension E2E Tests", () => {
   // Global cleanup at end of suite
@@ -347,6 +347,95 @@ suite("Slackoscope Extension E2E Tests", () => {
 
         assert.ok(insertedText.length > slackUrl.length, `Should insert content for ${language}`)
       }
+    })
+  })
+
+  suite("Comment Insertion Edge Cases", () => {
+    test("hover action links use markdown syntax, not HTML anchors", async () => {
+      // VS Code only wires up click handling for links it generated from
+      // markdown. An <a href="command:..."> renders but does nothing, which is
+      // how the hover's insert-comment link silently broke.
+      const slackUrl = "https://test-workspace.slack.com/archives/C1234ABCD/p1234567890123456"
+      const {doc} = await createTestDocument(`// ${slackUrl}\n`)
+
+      const urlPosition = doc.positionAt(doc.getText().indexOf(slackUrl) + 20)
+      const hoverText = extractHoverText(await getHoverContent(doc, urlPosition))
+
+      assert.ok(
+        hoverText.includes("](command:slackoscope.insertCommentedMessage"),
+        "Insert action should be a markdown command link"
+      )
+      assert.ok(
+        !/<a\s[^>]*href="command:/.test(hoverText),
+        "No action may be rendered as a raw HTML anchor - those never fire"
+      )
+    })
+
+    test("hover insert action targets the URL's line, not the cursor", async () => {
+      const slackUrl = "https://test-workspace.slack.com/archives/C1234ABCD/p1234567890123456"
+      const {doc, editor} = await createTestDocument(`const a = 1\n// ${slackUrl}\nconst b = 2\n`)
+
+      // Park the cursor somewhere else entirely
+      editor.selection = new vscode.Selection(0, 0, 0, 0)
+
+      const urlPosition = doc.positionAt(doc.getText().indexOf(slackUrl) + 20)
+      const hoverText = extractHoverText(await getHoverContent(doc, urlPosition))
+
+      const match = hoverText.match(/\]\(command:slackoscope\.insertCommentedMessage\?([^)]+)\)/)
+      assert.ok(match, "Hover should carry an insert command link")
+
+      const args = JSON.parse(decodeURIComponent(match![1]))
+      assert.strictEqual(args.lineNumber, 1, "Insert should be anchored to the URL's line")
+    })
+
+    test("should insert on a new line when the URL is on the last line", async () => {
+      const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
+      // No trailing newline - the URL sits on the final line of the document
+      const {editor} = await createTestDocument(`// ${slackUrl}`)
+
+      const linesBefore = editor.document.lineCount
+      assert.strictEqual(linesBefore, 1, "Fixture should be a single-line document")
+
+      await vscode.commands.executeCommand("slackoscope.insertCommentedMessage", {
+        url: slackUrl,
+        lineNumber: 0
+      })
+
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      const lines = editor.document.getText().split("\n")
+      assert.ok(lines.length > 1, "Should have added at least one line below the URL")
+      assert.ok(lines[0].includes(slackUrl), "URL line should be left intact")
+      assert.ok(
+        lines.slice(1).some(line => line.trim().startsWith("//")),
+        "Inserted comment should land on a following line, not be appended to the URL line"
+      )
+    })
+
+    test("should insert plain text for languages with no comment syntax", async () => {
+      const slackUrl = "https://workspace.slack.com/archives/C1234/p1234567890123456"
+      const {editor} = await createTestDocument(`${slackUrl}\n`, "plaintext")
+
+      await vscode.commands.executeCommand("slackoscope.insertCommentedMessage", {
+        url: slackUrl,
+        lineNumber: 0
+      })
+
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      const lines = editor.document.getText().split("\n")
+      const inserted = lines.slice(1).filter(line => line.trim().length > 0)
+
+      assert.ok(inserted.length > 0, "Should have inserted content")
+      assert.ok(
+        !inserted.some(line => line.trim().startsWith("//")),
+        "Plaintext should not get a '//' prefix - LINE_COMMENT has no meaning there"
+      )
+      // Fixture user U1234567890 has displayName "Alice"
+      assert.ok(
+        inserted.some(line => line.includes("@Alice")),
+        "Message content should still be inserted"
+      )
     })
   })
 

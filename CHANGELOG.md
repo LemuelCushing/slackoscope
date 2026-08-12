@@ -4,7 +4,27 @@ All notable changes to the "slackoscope" extension will be documented in this fi
 
 ## [Unreleased]
 
+### Fixed
+- **Hover action links did nothing when clicked**: hover actions were rendered as raw
+  HTML `<a href="command:...">` anchors. VS Code only wires up click handling for links
+  it generated from markdown, so every hover action — Insert comment, Refresh, and all
+  the Linear actions — rendered as a link and then did nothing. They are markdown links
+  again, indented instead of centered (markdown inside a raw HTML block is not parsed,
+  so the two cannot be combined).
+- **Insert comment at end of file**: inserting from a Slack URL on the last line targeted
+  a line that does not exist. The comment is now appended below the URL on a new line.
+- **Insert comment used the cursor's line, not the URL's**: the hover and quick-fix actions
+  now pass the line of the URL you acted on, so the comment lands under it even when the
+  cursor is elsewhere.
+- **Insert comment in documents with no comment syntax**: `plaintext`, `markdown`, and `log`
+  documents no longer get a meaningless `//` prefix. The message is inserted as plain text
+  and the status bar explains why.
+
 ### Added
+- `npm run test:unit` — runs the VS Code-independent tests in plain mocha, with no VS Code
+  download and no display server. Tests are split into `src/test/unit` and
+  `src/test/integration`; `npm test` still runs both.
+- `.github/dependabot.yml` — weekly grouped npm updates.
 - **Thread support**: View thread replies in hover tooltips with reply count indicators
 - **Inline message preview**: Display message content inline next to URLs (ephemeral, customizable)
   - Toggle command: "Slackoscope: Toggle Inline Message Display"

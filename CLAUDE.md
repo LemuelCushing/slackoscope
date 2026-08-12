@@ -440,12 +440,23 @@ SLACK_URL_REGEX = /https:\/\/[a-zA-Z0-9-]+\.slack\.com\/archives\/([A-Z0-9]+)\/p
 ```bash
 npm run compile-tests    # Compile tests only
 npm run pretest          # Full build + compile tests
-npm run test             # Run all tests in headless VS Code environment
+npm run test:unit        # Fast: src/test/unit only, plain mocha, no VS Code
+npm run test             # Full: both suites in a real VS Code instance
 ```
 
-**Test files**:
-- `src/test/slackApi.test.ts` - Unit tests for Slack API module
-- `src/test/extension.test.ts` - E2E tests for extension functionality
+**Test layout** — split by what a test needs:
+- `src/test/unit/` — no `vscode` import. Runs in plain mocha via `npm run test:unit`:
+  no VS Code download, no Electron, no display server. Use this as the inner loop.
+- `src/test/integration/` — drives the real editor (documents, commands, hovers).
+  Requires `vscode-test`, which downloads a VS Code build from
+  `update.code.visualstudio.com` on first run. On Linux run it headlessly with
+  `xvfb-run -a npm test`.
+- Shared helpers (`fixtures.ts`, `mocks.ts`, `setup.ts`, `testRegistry.ts`,
+  `testUtils.ts`) stay in `src/test/`. Files in the two subdirectories import them
+  as `../fixtures`, and reach source as `../../slack`.
+
+When adding a test, put it in `unit/` unless it genuinely needs the editor —
+that suite is the one that can run anywhere.
 
 ### Test Coverage
 

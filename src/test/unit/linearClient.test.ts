@@ -6,7 +6,7 @@
  */
 
 import * as assert from "assert"
-import type {ILinearClient, LinearIssue, LinearComment, LinearViewer, LinearWorkflowState} from "../linear"
+import type {ILinearClient, LinearIssue, LinearComment, LinearViewer, LinearWorkflowState} from "../../linear"
 
 /**
  * Mock LinearClient for unit testing that tracks method calls and returns predictable data.
