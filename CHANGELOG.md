@@ -4,6 +4,8 @@ All notable changes to the "slackoscope" extension will be documented in this fi
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-08-13
+
 ### Fixed
 - **Hover action links did nothing when clicked**: hover actions were rendered as raw
   HTML `<a href="command:...">` anchors. VS Code only wires up click handling for links
@@ -44,6 +46,21 @@ All notable changes to the "slackoscope" extension will be documented in this fi
   from `@vscode/test-cli`'s tree meant a dependabot bump could silently take it away.
 - `overrides` for `diff` and `serialize-javascript`, mocha's two vulnerable transitive deps.
   No mocha release clears them yet; `npm audit` now reports zero advisories.
+- A `vscode` stub (`src/test/unit` runs against it) so settings, commands, code actions and
+  hover content can be tested without an editor. Its configuration defaults are read from
+  `package.json`, so a default that drifts in the manifest fails the tests too.
+- GitHub Actions: `ci.yml` runs both suites on every push and PR — on Ubuntu under `xvfb`,
+  where the integration suite really is headless. `publish.yml` releases to the Marketplace
+  when a `v*` tag is pushed, refusing to publish if the tag and manifest versions disagree.
+
+### Changed
+- `npm test` no longer opens a VS Code window as a side effect of running "the tests".
+  `npm run test:unit` is headless and takes under a second; `npm run test:integration` is
+  the one that needs a window, and now has to be asked for by name. `npm test` runs both.
+
+## [1.5.0]
+
+### Added
 - **Thread support**: View thread replies in hover tooltips with reply count indicators
 - **Inline message preview**: Display message content inline next to URLs (ephemeral, customizable)
   - Toggle command: "Slackoscope: Toggle Inline Message Display"
