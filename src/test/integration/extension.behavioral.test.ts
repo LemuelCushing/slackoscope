@@ -3,7 +3,7 @@ import "../setup"
 
 import * as assert from "assert"
 import * as vscode from "vscode"
-import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "../testUtils"
+import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText, extractHoverMessage} from "../testUtils"
 import {TEST_SLACK_URLS} from "../fixtures"
 
 suite("Slackoscope Extension Behavioral Tests", () => {
@@ -316,7 +316,11 @@ suite("Slackoscope Extension Behavioral Tests", () => {
       const hovers2 = await getHoverContent(doc, urlPosition2)
       const hoverText2 = extractHoverText(hovers2)
 
-      assert.strictEqual(hoverText1, hoverText2, "Cached messages should return same content")
+      const message1 = extractHoverMessage(hoverText1)
+      const message2 = extractHoverMessage(hoverText2)
+
+      assert.ok(message1.length > 0, "Should render a message body to compare")
+      assert.strictEqual(message1, message2, "Cached messages should return same content")
     })
 
     test("should clear cache when command is executed", async () => {

@@ -99,3 +99,17 @@ export function extractHoverText(hovers: vscode.Hover[] | undefined): string {
     )
     .join("\n")
 }
+
+/**
+ * The quoted message body of a hover, without any of the surrounding chrome.
+ *
+ * Action links embed the line they act on, so two hovers over the same URL on
+ * different lines differ by design. Assertions about what was *fetched* (and
+ * therefore cached) should compare the message, not the chrome around it.
+ */
+export function extractHoverMessage(hoverText: string): string {
+  return hoverText
+    .split("\n")
+    .filter(line => line.startsWith("> "))
+    .join("\n")
+}
