@@ -7,7 +7,7 @@
   },
   "icon": "logo_gemini.png",
   "description": "Take a peek at slack msgs from inside your code. For those with no short term memory",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "engines": {
     "vscode": "^1.91.0",
     "node": ">=22"
@@ -27,7 +27,7 @@
       },
       {
         "command": "slackoscope.insertCommentedMessage",
-        "title": "Slackoscope: Insert Commented Message",
+        "title": "Slackoscope: Insert Message as Comment Below",
         "enablement": "false"
       },
       {
@@ -36,7 +36,7 @@
       },
       {
         "command": "slackoscope.postToLinear",
-        "title": "Slackoscope: Post Current File to Linear Issue",
+        "title": "Slackoscope: Post as Comment on Linear Issue",
         "enablement": "false"
       },
       {
@@ -51,7 +51,7 @@
       },
       {
         "command": "slackoscope.claimAndClose",
-        "title": "Linear: Claim & Close Issue",
+        "title": "Slackoscope: Post, Assign & Close Linear Issue",
         "enablement": "false"
       },
       {
@@ -179,6 +179,12 @@
           ],
           "order": 50,
           "markdownDescription": "**State types considered 'Done'** — Used for warning decorations and Claim & Close. Linear state types: `backlog`, `unstarted`, `started`, `completed`, `canceled`"
+        },
+        "slackoscope.linear.postFromUrlLine": {
+          "type": "boolean",
+          "default": true,
+          "order": 52,
+          "markdownDescription": "**Post from URL line** — When no text is selected, show a picker to choose between posting from the Slack URL line to end of file, or the entire file. When disabled, always posts the entire file."
         },
         "slackoscope.linear.showTicketWarnings": {
           "type": "boolean",

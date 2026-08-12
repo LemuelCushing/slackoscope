@@ -34,6 +34,7 @@ export interface HighlightingSettings {
 export interface LinearSettings {
   doneStateTypes: string[]
   showTicketWarnings: boolean
+  postFromUrlLine: boolean
 }
 
 export interface SettingsChangeEvent {
@@ -117,6 +118,7 @@ export class Settings implements vscode.Disposable {
     return {
       doneStateTypes: this.config.get("linear.doneStateTypes", ["completed"]),
       showTicketWarnings: this.config.get("linear.showTicketWarnings", true),
+      postFromUrlLine: this.config.get("linear.postFromUrlLine", true),
     }
   }
 

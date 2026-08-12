@@ -8,9 +8,10 @@
  */
 
 import * as vscode from "vscode"
-import type {SlackLoader, SlackMessage} from "../../slack"
-import type {LinearLoader, LinearIssue} from "../../linear"
+import type {SlackMessage} from "../../slack"
+import type {LinearIssue} from "../../linear"
 import type {Settings} from "../config"
+import type {LoaderDependencies} from "../dependencies"
 import {SlackUrlOccurrence} from "../editor"
 import {createInlineDecorationType, buildInlineContent, createDecorationOptions} from "../renderers"
 import {formatAbsoluteTime, slackTsToDate} from "../renderers/formatting"
@@ -42,8 +43,7 @@ export class DecorationController implements vscode.Disposable {
   private updateTimeout: NodeJS.Timeout | null = null
 
   constructor(
-    private slackLoader: SlackLoader,
-    private linearLoader: LinearLoader,
+    private readonly deps: LoaderDependencies,
     private settings: Settings
   ) {
     // Create decoration types
@@ -70,14 +70,6 @@ export class DecorationController implements vscode.Disposable {
         editors.forEach(editor => this.updateDecorations(editor))
       })
     )
-  }
-
-  updateSlackLoader(loader: SlackLoader): void {
-    this.slackLoader = loader
-  }
-
-  updateLinearLoader(loader: LinearLoader): void {
-    this.linearLoader = loader
   }
 
   /**
@@ -185,14 +177,14 @@ export class DecorationController implements vscode.Disposable {
     const results = await Promise.all(
       occurrences.map(async occ => {
         try {
-          const {target, all} = await this.slackLoader.getMessagesForUrl(occ.url)
+          const {target, all} = await this.deps.slackLoader.getMessagesForUrl(occ.url)
 
           // Try to get Linear issue metadata
           let linearIssue: LinearIssue | undefined
           try {
-            const metadata = await this.linearLoader.getMetadataForUrl(occ.url, all)
+            const metadata = await this.deps.linearLoader.getMetadataForUrl(occ.url, all)
             if (metadata) {
-              const issue = await this.linearLoader.getIssue(metadata.identifier)
+              const issue = await this.deps.linearLoader.getIssue(metadata.identifier)
               linearIssue = issue ?? undefined
             }
           } catch {
@@ -224,7 +216,7 @@ export class DecorationController implements vscode.Disposable {
           const timestampRange = occ.timestampRange()
           if (!channelIdRange || !timestampRange) return
 
-          const channel = await this.slackLoader.getChannel(occ.url.channelId)
+          const channel = await this.deps.slackLoader.getChannel(occ.url.channelId)
           const formattedTime = formatAbsoluteTime(slackTsToDate(occ.url.messageTs))
 
           channelDecorations.push({
@@ -255,7 +247,7 @@ export class DecorationController implements vscode.Disposable {
         const range = occurrence.inlineDecorationRange(editor.document)
         try {
           const user = this.settings.inline.showUser
-            ? await this.slackLoader.getUser(message.user)
+            ? await this.deps.slackLoader.getUser(message.user)
             : undefined
 
           const content = buildInlineContent(message, user, this.settings.inline)

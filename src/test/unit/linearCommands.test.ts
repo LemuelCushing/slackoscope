@@ -41,6 +41,10 @@ const codeActionsFor = async (url: string): Promise<vscode.CodeAction[]> => {
 
 const titlesOf = (actions: vscode.CodeAction[]) => actions.map(action => action.title)
 
+/** What every Linear command says when there is no token, from `linearPostingHelpers`. */
+const NO_LINEAR_TOKEN =
+  "Slackoscope: Linear integration not configured. Set slackoscope.linearToken in VS Code Settings."
+
 /** Command ids the manifest actually contributes. */
 const contributedCommands = (): string[] => {
   const manifest = JSON.parse(readFileSync(join(__dirname, "..", "..", "..", "package.json"), "utf8"))
@@ -100,11 +104,11 @@ suite("Linear commands", () => {
       await activateWith()
 
       assert.deepStrictEqual(titlesOf(await codeActionsFor(TEST_SLACK_URLS.linearBot)), [
-        "Slack: Insert as Comment",
-        "Linear: Post to ENG-1234",
-        "Linear: Assign ENG-1234 to Me",
-        "Linear: Set ENG-1234 Status",
-        "Linear: Claim & Close ENG-1234"
+        "Insert message as comment below",
+        "Post as comment on ENG-1234 (Linear)",
+        "Assign ENG-1234 to me (Linear)",
+        "Set ENG-1234 status (Linear)",
+        "Post snippet, assign & close ENG-1234 (Linear)"
       ])
     })
 
@@ -113,7 +117,7 @@ suite("Linear commands", () => {
       const titles = titlesOf(await codeActionsFor(TEST_SLACK_URLS.threadParent))
 
       assert.ok(
-        titles.includes("Linear: Claim & Close TST-10291"),
+        titles.includes("Post snippet, assign & close TST-10291 (Linear)"),
         `expected the threaded issue to surface, got ${JSON.stringify(titles)}`
       )
     })
@@ -121,7 +125,9 @@ suite("Linear commands", () => {
     test("offers only the Slack action when no issue is mentioned", async () => {
       await activateWith()
 
-      assert.deepStrictEqual(titlesOf(await codeActionsFor(TEST_SLACK_URLS.simple)), ["Slack: Insert as Comment"])
+      assert.deepStrictEqual(titlesOf(await codeActionsFor(TEST_SLACK_URLS.simple)), [
+        "Insert message as comment below"
+      ])
     })
 
     test("offers nothing away from a Slack URL", async () => {
@@ -138,22 +144,26 @@ suite("Linear commands", () => {
       assert.deepStrictEqual(actions, [])
     })
 
-    test("prefixes every action with the service it acts on", async () => {
+    test("marks exactly the Linear actions with the (Linear) suffix", async () => {
       await activateWith()
+      const actions = await codeActionsFor(TEST_SLACK_URLS.linearBot)
 
-      for (const {title} of await codeActionsFor(TEST_SLACK_URLS.linearBot)) {
-        assert.ok(/^(Slack|Linear): /.test(title), `'${title}' should be prefixed with its service`)
+      for (const {title, command} of actions) {
+        const isLinearAction = command?.command !== "slackoscope.insertCommentedMessage"
+        assert.strictEqual(title.endsWith(" (Linear)"), isLinearAction, `'${title}' is marked wrong`)
       }
     })
 
     test("wires each Linear action to its command and issue", async () => {
       await activateWith()
       const actions = await codeActionsFor(TEST_SLACK_URLS.linearBot)
-      const claimAndClose = actions.find(action => action.title.includes("Claim & Close"))
+      const claimAndClose = actions.find(action => action.title.includes("assign & close"))
 
-      assert.ok(claimAndClose, "Claim & Close action should be offered")
+      assert.ok(claimAndClose, "claim & close action should be offered")
       assert.strictEqual(claimAndClose.command?.command, "slackoscope.claimAndClose")
-      assert.deepStrictEqual(claimAndClose.command?.arguments, [{issueId: "issue-id-1", identifier: "ENG-1234"}])
+      assert.deepStrictEqual(claimAndClose.command?.arguments, [
+        {issueId: "issue-id-1", identifier: "ENG-1234", fromLine: 0}
+      ])
     })
 
     test("points the insert action at the line the URL ends on", async () => {
@@ -210,7 +220,7 @@ suite("Linear commands", () => {
 
       await vscode.commands.executeCommand("slackoscope.setStatus", {issueId: "issue-id-1", identifier: "ENG-1234"})
 
-      assert.deepStrictEqual(shownMessages.error, ["Slackoscope: Linear token not configured"])
+      assert.deepStrictEqual(shownMessages.error, [NO_LINEAR_TOKEN])
       assert.strictEqual(quickPicks.length, 0, "should not ask for a status it cannot set")
     })
   })
@@ -230,7 +240,7 @@ suite("Linear commands", () => {
 
       await vscode.commands.executeCommand("slackoscope.assignToMe", {issueId: "issue-id-1", identifier: "ENG-1234"})
 
-      assert.deepStrictEqual(shownMessages.error, ["Slackoscope: Linear token not configured"])
+      assert.deepStrictEqual(shownMessages.error, [NO_LINEAR_TOKEN])
     })
 
     test("surfaces an error rather than throwing when arguments are missing", async () => {

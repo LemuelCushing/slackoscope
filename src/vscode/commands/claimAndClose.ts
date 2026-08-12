@@ -1,16 +1,22 @@
 /**
- * claimAndClose command - Post file, assign to self, and set to done in one action.
+ * claimAndClose command - Post content, assign to self, and set to done in one action.
  */
 
 import * as vscode from "vscode"
-import type {ILinearClient, LinearComment, LinearWorkflowState} from "../../linear"
+import type {ILinearClient, LinearWorkflowState} from "../../linear"
 import type {Settings} from "../config"
-
-const SLACKOSCOPE_SIGNATURE = "_Posted from VS Code via [Slackoscope]"
+import {
+  LINEAR_NOT_CONFIGURED,
+  buildCommentBody,
+  findExistingSlackoscopeComment,
+  promptForExistingComment,
+  resolvePostContent,
+} from "./linearPostingHelpers"
 
 interface ClaimAndCloseArgs {
   issueId: string
   identifier: string
+  fromLine?: number
 }
 
 export async function claimAndClose(
@@ -19,7 +25,7 @@ export async function claimAndClose(
   args: ClaimAndCloseArgs
 ): Promise<void> {
   if (!linearClient) {
-    vscode.window.showErrorMessage("Slackoscope: Linear integration not configured. Set slackoscope.linearToken.")
+    vscode.window.showErrorMessage(`Slackoscope: ${LINEAR_NOT_CONFIGURED}`)
     return
   }
 
@@ -29,17 +35,18 @@ export async function claimAndClose(
     return
   }
 
-  const document = editor.document
-  const fileContent = document.getText()
-  const language = document.languageId
-  const commentBody = buildCommentBody(fileContent, language)
+  const content = await resolvePostContent(editor, args.fromLine, settings.linear.postFromUrlLine)
+  if (!content) return // User cancelled
+
+  const language = editor.document.languageId
+  const commentBody = buildCommentBody(content, language)
 
   try {
     // Step 1: Post comment (with duplicate detection)
     const existingComment = await findExistingSlackoscopeComment(linearClient, args.issueId)
 
     if (existingComment) {
-      const action = await promptForExistingComment(existingComment, fileContent)
+      const action = await promptForExistingComment(existingComment, content)
       if (!action) return
 
       if (action === "update") {
@@ -114,60 +121,4 @@ async function promptForStatus(
   })
 
   return selected?.detail ?? null
-}
-
-function buildCommentBody(fileContent: string, language: string): string {
-  return `\`\`\`${language}
-${fileContent}
-\`\`\`
-
-_Posted from VS Code via [Slackoscope](https://marketplace.visualstudio.com/items?itemName=LemuelCushing.slackoscope)_`
-}
-
-async function findExistingSlackoscopeComment(
-  client: ILinearClient,
-  issueId: string
-): Promise<LinearComment | null> {
-  const viewer = await client.getViewer()
-  const comments = await client.getComments(issueId)
-
-  return (
-    comments.find(
-      c => c.user?.id === viewer.id && c.body.includes(SLACKOSCOPE_SIGNATURE)
-    ) ?? null
-  )
-}
-
-async function promptForExistingComment(
-  existing: LinearComment,
-  currentContent: string
-): Promise<"update" | "add" | null> {
-  const existingContent = extractCodeFromComment(existing.body)
-  const isSameContent = existingContent === currentContent
-
-  if (isSameContent) {
-    const result = await vscode.window.showWarningMessage(
-      "This file has already been posted to this issue with identical content.",
-      "Post Anyway",
-      "Cancel"
-    )
-    return result === "Post Anyway" ? "add" : null
-  }
-
-  const result = await vscode.window.showQuickPick(
-    [
-      {label: "Update existing comment", description: "Replace the previous Slackoscope comment", value: "update"},
-      {label: "Add new comment", description: "Keep the old comment and add a new one", value: "add"},
-      {label: "Cancel", value: "cancel"},
-    ],
-    {placeHolder: "A Slackoscope comment already exists on this issue"}
-  )
-
-  if (!result || result.value === "cancel") return null
-  return result.value as "update" | "add"
-}
-
-function extractCodeFromComment(body: string): string {
-  const match = body.match(/```\w*\n([\s\S]*?)```/)
-  return match?.[1] ?? ""
 }

@@ -3,26 +3,17 @@
  */
 
 import * as vscode from "vscode"
-import type {SlackLoader} from "../../slack"
-import type {LinearLoader, LinearIssue} from "../../linear"
+import type {LinearIssue} from "../../linear"
 import type {Settings} from "../config"
+import type {LoaderDependencies} from "../dependencies"
 import {SlackUrlOccurrence} from "../editor"
 import {HoverContentBuilder, type ActionDef} from "../renderers"
 
 export class HoverProvider implements vscode.HoverProvider {
   constructor(
-    private slackLoader: SlackLoader,
-    private linearLoader: LinearLoader,
+    private readonly deps: LoaderDependencies,
     private settings: Settings
   ) {}
-
-  updateSlackLoader(loader: SlackLoader): void {
-    this.slackLoader = loader
-  }
-
-  updateLinearLoader(loader: LinearLoader): void {
-    this.linearLoader = loader
-  }
 
   async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | null> {
     const occurrence = SlackUrlOccurrence.at(document, position)
@@ -32,19 +23,19 @@ export class HoverProvider implements vscode.HoverProvider {
       const {url} = occurrence
 
       // Fetch messages
-      const {target, all, replyCount} = await this.slackLoader.getMessagesForUrl(url)
+      const {target, all, replyCount} = await this.deps.slackLoader.getMessagesForUrl(url)
 
       // Build hover content
       const builder = new HoverContentBuilder()
 
       // Channel
       if (this.settings.hover.showChannel) {
-        const channel = await this.slackLoader.getChannel(url.channelId)
+        const channel = await this.deps.slackLoader.getChannel(url.channelId)
         builder.channel(channel, !!url.threadTs)
       }
 
       // Author
-      const user = await this.slackLoader.getUser(target.user)
+      const user = await this.deps.slackLoader.getUser(target.user)
       const context = url.threadTs ? (target.ts === url.threadTs ? "Thread started" : "Thread reply") : undefined
       builder.author(user, target, context)
 
@@ -58,10 +49,10 @@ export class HoverProvider implements vscode.HoverProvider {
       }
 
       // Linear issue detection
-      const linearMetadata = await this.linearLoader.getMetadataForUrl(url, all)
+      const linearMetadata = await this.deps.linearLoader.getMetadataForUrl(url, all)
       let linearIssue: LinearIssue | null = null
       if (linearMetadata) {
-        linearIssue = await this.linearLoader.getIssue(linearMetadata.identifier)
+        linearIssue = await this.deps.linearLoader.getIssue(linearMetadata.identifier)
       }
 
       // Linear info
@@ -71,13 +62,13 @@ export class HoverProvider implements vscode.HoverProvider {
       builder.separator()
 
       const slackActions: ActionDef[] = [
-        {label: "⨁ Insert comment", command: "slackoscope.insertCommentedMessage", args: {url: url.raw, lineNumber: occurrence.range.end.line, linearIdentifier: linearIssue?.identifier}},
+        {label: "⨁ Inline as comment", command: "slackoscope.insertCommentedMessage", args: {url: url.raw, lineNumber: occurrence.range.start.line, linearIdentifier: linearIssue?.identifier}},
         {label: "↻ Refresh", command: "slackoscope.refreshMessage", args: {url: url.raw}},
       ]
 
       const linearActions: ActionDef[] = linearIssue
         ? [
-            {label: `⏎ Post to ${linearIssue.identifier}`, command: "slackoscope.postToLinear", args: {issueId: linearIssue.id, identifier: linearIssue.identifier}},
+            {label: `⏎ Post as comment on ${linearIssue.identifier}`, command: "slackoscope.postToLinear", args: {issueId: linearIssue.id, identifier: linearIssue.identifier, fromLine: occurrence.range.start.line}},
             {label: `𖨆 Assign to me`, command: "slackoscope.assignToMe", args: {issueId: linearIssue.id, identifier: linearIssue.identifier}},
             {label: `𜳨 Set status`, command: "slackoscope.setStatus", args: {issueId: linearIssue.id, identifier: linearIssue.identifier}},
           ]

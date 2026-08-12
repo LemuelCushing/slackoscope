@@ -48,8 +48,8 @@ const COMMANDS = {
 
   clearCache: (deps: CommandDependencies) => () => clearCache(deps.slackStore, deps.linearStore),
 
-  postToLinear: (deps: CommandDependencies) => (args: {issueId: string; identifier: string}) =>
-    postToLinear(deps.linearClient, args),
+  postToLinear: (deps: CommandDependencies) => (args: {issueId: string; identifier: string; fromLine?: number}) =>
+    postToLinear(deps.linearClient, deps.settings, args),
 
   assignToMe: (deps: CommandDependencies) => (args: {issueId: string; identifier: string}) =>
     assignToMe(deps.linearClient, args),
@@ -57,7 +57,7 @@ const COMMANDS = {
   setStatus: (deps: CommandDependencies) => (args: {issueId: string; identifier: string}) =>
     setStatus(deps.linearClient, args),
 
-  claimAndClose: (deps: CommandDependencies) => (args: {issueId: string; identifier: string}) =>
+  claimAndClose: (deps: CommandDependencies) => (args: {issueId: string; identifier: string; fromLine?: number}) =>
     claimAndClose(deps.linearClient, deps.settings, args),
 
   refreshMessage: (deps: CommandDependencies) => (args: {url: string}) =>
