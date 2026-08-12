@@ -1,6 +1,6 @@
 import * as assert from "assert"
-import {syncLiveDependencies, type LiveCommandDependencies} from "../lib/liveDependencies"
-import type {LoaderDependencies} from "../vscode/dependencies"
+import {syncLiveDependencies, type LiveCommandDependencies} from "../../lib/liveDependencies"
+import type {LoaderDependencies} from "../../vscode/dependencies"
 
 suite("Live dependency synchronization", () => {
   test("mutates existing dependency objects in place", () => {

@@ -17,6 +17,15 @@ interface InsertCommentDeps {
   linearLoader: LinearLoader
 }
 
+/**
+ * Languages with no line-comment token, where `${LINE_COMMENT}` would silently
+ * fall back to `//` and write something the document cannot mean. These are
+ * prose/unidentified formats, so the message goes in as plain text instead.
+ *
+ * `plaintext` is also what VS Code reports for files it cannot identify.
+ */
+const PLAIN_TEXT_LANGUAGES = new Set(["plaintext", "markdown", "log"])
+
 export async function insertComment(deps: InsertCommentDeps, args: InsertCommentArgs): Promise<void> {
   const editor = vscode.window.activeTextEditor
   if (!editor) {
@@ -51,27 +60,39 @@ export async function insertComment(deps: InsertCommentDeps, args: InsertComment
     const header = `${linearPrefix}@${user.displayName}:`
     const commentLines = [header, ...lines]
 
+    const document = editor.document
+    const asPlainText = PLAIN_TEXT_LANGUAGES.has(document.languageId)
+
+    // Insert on the line after the URL (or the cursor, if the caller gave no line).
+    // At the end of the document there is no following line to target, so append
+    // to the last line and lead with a newline instead.
+    const anchorLine = args.lineNumber ?? editor.selection.active.line
+    const lastLine = document.lineCount - 1
+    const atEndOfDocument = anchorLine >= lastLine
+    const position = atEndOfDocument ? document.lineAt(lastLine).range.end : new vscode.Position(anchorLine + 1, 0)
+
     // Use VS Code snippets for language-agnostic comments
     const snippet = new vscode.SnippetString()
-    commentLines.forEach(line => {
-      snippet.appendVariable("LINE_COMMENT", "//")
-      snippet.appendText(" ")
-      snippet.appendText(line)
-      snippet.appendText("\n")
+    if (atEndOfDocument) snippet.appendText("\n")
+    commentLines.forEach((text, i) => {
+      if (i > 0) snippet.appendText("\n")
+      if (asPlainText) {
+        snippet.appendText(text)
+      } else {
+        snippet.appendVariable("LINE_COMMENT", "//")
+        snippet.appendText(` ${text}`)
+      }
     })
+    if (!atEndOfDocument) snippet.appendText("\n")
 
-    // Insert at the line after the URL (or specified line)
-    const line = args.lineNumber ?? editor.selection.active.line
-    const {document} = editor
-
-    // EOF fix: if the target line is the last line, append a newline first
-    if (line + 1 >= document.lineCount) {
-      const lastLine = document.lineAt(document.lineCount - 1)
-      await editor.edit(edit => edit.insert(lastLine.range.end, "\n"))
-    }
-
-    const position = new vscode.Position(line + 1, 0)
     await editor.insertSnippet(snippet, position)
+
+    if (asPlainText) {
+      vscode.window.setStatusBarMessage(
+        `Slackoscope: '${document.languageId}' has no comment syntax — inserted as plain text`,
+        5000
+      )
+    }
   } catch (error) {
     if (error instanceof Error) {
       vscode.window.showErrorMessage(`Slackoscope: ${error.message}`)

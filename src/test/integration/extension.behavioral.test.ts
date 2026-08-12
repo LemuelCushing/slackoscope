@@ -1,10 +1,10 @@
 // Setup must be imported FIRST to register mocks before extension activation
-import "./setup"
+import "../setup"
 
 import * as assert from "assert"
 import * as vscode from "vscode"
-import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText} from "./testUtils"
-import {TEST_SLACK_URLS} from "./fixtures"
+import {createTestDocument, closeAllEditors, getHoverContent, extractHoverText, extractHoverMessage} from "../testUtils"
+import {TEST_SLACK_URLS} from "../fixtures"
 
 suite("Slackoscope Extension Behavioral Tests", () => {
   // Set tokens once before all tests in this suite
@@ -316,9 +316,11 @@ suite("Slackoscope Extension Behavioral Tests", () => {
       const hovers2 = await getHoverContent(doc, urlPosition2)
       const hoverText2 = extractHoverText(hovers2)
 
-      // Strip line-number params from action links — they naturally differ per occurrence
-      const normalize = (text: string) => text.replace(/%22lineNumber%22%3A\d+/g, "%22lineNumber%22%3A0")
-      assert.strictEqual(normalize(hoverText1), normalize(hoverText2), "Cached messages should return same content")
+      const message1 = extractHoverMessage(hoverText1)
+      const message2 = extractHoverMessage(hoverText2)
+
+      assert.ok(message1.length > 0, "Should render a message body to compare")
+      assert.strictEqual(message1, message2, "Cached messages should return same content")
     })
 
     test("should clear cache when command is executed", async () => {

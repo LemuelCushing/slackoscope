@@ -4,7 +4,46 @@ All notable changes to the "slackoscope" extension will be documented in this fi
 
 ## [Unreleased]
 
+### Fixed
+- **Hover action links did nothing when clicked**: hover actions were rendered as raw
+  HTML `<a href="command:...">` anchors. VS Code only wires up click handling for links
+  it generated from markdown, so every hover action — Insert comment, Refresh, and all
+  the Linear actions — rendered as a link and then did nothing. They are markdown links
+  again, indented instead of centered (markdown inside a raw HTML block is not parsed,
+  so the two cannot be combined).
+- **Insert comment at end of file**: inserting from a Slack URL on the last line targeted
+  a line that does not exist. The comment is now appended below the URL on a new line.
+- **Insert comment used the cursor's line, not the URL's**: the hover and quick-fix actions
+  now pass the line of the URL you acted on, so the comment lands under it even when the
+  cursor is elsewhere.
+- **Insert comment in documents with no comment syntax**: `plaintext`, `markdown`, and `log`
+  documents no longer get a meaningless `//` prefix. The message is inserted as plain text
+  and the status bar explains why.
+- **`npm test` could not launch VS Code**: `@vscode/test-cli` 0.0.15 needs
+  `@vscode/test-electron` 3.x, which was still pinned to 2.x. VS Code 1.110+ renamed the
+  macOS executable, so 2.x looked for a binary that no longer exists and the whole suite
+  died with `spawn .../Contents/MacOS/Electron ENOENT` before a single test ran.
+- **Moved tests kept running from their old location**: `compile-tests` never cleaned `out/`,
+  so the pre-split copies of every relocated test lingered and ran alongside the current
+  ones — asserting long-since-changed microcopy and failing. `out/` is now cleaned first.
+- **Caching test compared the wrong thing**: hover actions now embed the line they act on,
+  so the same message hovered on two lines legitimately renders two different strings. The
+  cache assertion compares the message body instead of the chrome around it.
+- **Settings tests failed on any machine that had run them before**: `.vscode-test/user-data`
+  survives between runs, so a Global setting written by an earlier suite and never restored
+  was still there on the next run, and the "defaults to true" assertions read the leftover.
+  They now assert against the value package.json contributes (`inspect().defaultValue`),
+  which no amount of profile drift can change.
+
 ### Added
+- `npm run test:unit` — runs the VS Code-independent tests in plain mocha, with no VS Code
+  download and no display server. Tests are split into `src/test/unit` and
+  `src/test/integration`; `npm test` still runs both.
+- `.github/dependabot.yml` — weekly grouped npm updates.
+- `mocha` is now a direct devDependency — `test:unit` invokes it, and borrowing the binary
+  from `@vscode/test-cli`'s tree meant a dependabot bump could silently take it away.
+- `overrides` for `diff` and `serialize-javascript`, mocha's two vulnerable transitive deps.
+  No mocha release clears them yet; `npm audit` now reports zero advisories.
 - **Thread support**: View thread replies in hover tooltips with reply count indicators
 - **Inline message preview**: Display message content inline next to URLs (ephemeral, customizable)
   - Toggle command: "Slackoscope: Toggle Inline Message Display"
