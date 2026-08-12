@@ -9,7 +9,8 @@
   "description": "Take a peek at slack msgs from inside your code. For those with no short term memory",
   "version": "1.4.0",
   "engines": {
-    "vscode": "^1.91.0"
+    "vscode": "^1.91.0",
+    "node": ">=22"
   },
   "categories": [
     "Other"
@@ -200,24 +201,25 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src --ext ts",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "test:unit": "npm run compile-tests && mocha --ui tdd \"out/test/unit/**/*.test.js\""
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",
-    "@types/mocha": "^10.0.7",
+    "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/vscode": "^1.91.0",
-    "@typescript-eslint/eslint-plugin": "^8.47.0",
-    "@typescript-eslint/parser": "^8.47.0",
-    "@vscode/test-cli": "^0.0.9",
-    "@vscode/test-electron": "^2.4.0",
-    "@vscode/vsce": "^3.4.2",
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
+    "@typescript-eslint/parser": "^8.67.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.2",
     "chai": "^6.2.2",
-    "esbuild": "^0.27.0",
-    "eslint": "^8.57.0",
-    "eslint-config-prettier": "^10.1.5",
+    "esbuild": "^0.28.2",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
     "npm-run-all": "^4.1.5",
-    "prettier": "^3.5.3",
+    "prettier": "^3.9.6",
     "typescript": "^5.9.3"
   },
   "keywords": [
